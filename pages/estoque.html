@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estoque - Sistema Vestio</title>
+    <link rel="stylesheet" href="../css/globais.css">
+    
+    <script type="module" src="../js/auth-guard.js"></script>
+
+    <style>
+        /* Estilos específicos para esta tela */
+        .container-estoque { display: flex; gap: 20px; }
+        .card-form { background: white; padding: 20px; border-radius: 8px; flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .card-lista { background: white; padding: 20px; border-radius: 8px; flex: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grade-box { border: 1px dashed #ccc; padding: 15px; border-radius: 8px; margin-top: 15px; background-color: #f9f9f9; }
+        .lista-variantes { list-style: none; padding: 0; margin-top: 10px; }
+        .lista-variantes li { background: #e8f4f8; padding: 8px; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #2c3e50; color: white; }
+    </style>
+</head>
+<body style="margin: 0;">
+
+    <header style="background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between;">
+        <h1 style="margin: 0; font-size: 1.5rem;">Sistema Vestio - Estoque</h1>
+        <button id="btn-voltar" style="background-color: #34495e; color: white; padding: 5px 15px;">Voltar ao Painel</button>
+    </header>
+
+    <div style="display: flex; min-height: calc(100vh - 60px);">
+        <nav style="width: 250px; background-color: #34495e; padding: 20px;">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 10px;"><a href="dashboard.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Início</a></li>
+                <li style="margin-bottom: 10px;"><a href="pdv.html" style="color: white; text-decoration: none; display: block; padding: 10px;">PDV</a></li>
+                <li style="margin-bottom: 10px;"><a href="#" style="color: white; text-decoration: none; display: block; padding: 10px; background-color: #2c3e50; border-radius: 4px;">Estoque</a></li>
+                <li style="margin-bottom: 10px;"><a href="clientes.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Clientes</a></li>
+            </ul>
+        </nav>
+
+        <main style="flex: 1; padding: 30px;">
+            <div class="container-estoque">
+                
+                <div class="card-form">
+                    <h3>Cadastrar Novo Produto</h3>
+                    <form id="form-produto">
+                        <label>Nome da Peça / Modelo</label>
+                        <input type="text" id="nome" required placeholder="Ex: Camiseta Básica Algodão">
+                        
+                        <div class="grid-2">
+                            <div>
+                                <label>Categoria</label>
+                                <select id="categoria" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="Camiseta">Camiseta</option>
+                                    <option value="Calça">Calça</option>
+                                    <option value="Vestido">Vestido</option>
+                                    <option value="Casaco">Casaco</option>
+                                    <option value="Acessório">Acessório</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Marca</label>
+                                <input type="text" id="marca" required placeholder="Ex: Nike, Própria">
+                            </div>
+                        </div>
+
+                        <div class="grid-2">
+                            <div>
+                                <label>Preço de Custo (R$)</label>
+                                <input type="number" step="0.01" id="precoCusto" required>
+                            </div>
+                            <div>
+                                <label>Preço de Venda (R$)</label>
+                                <input type="number" step="0.01" id="precoVenda" required>
+                            </div>
+                        </div>
+
+                        <div class="grade-box">
+                            <h4>Grade e Quantidade</h4>
+                            <div class="grid-2">
+                                <div>
+                                    <label>Tamanho</label>
+                                    <select id="var-tamanho">
+                                        <option value="Único">Único</option>
+                                        <option value="PP">PP</option>
+                                        <option value="P">P</option>
+                                        <option value="M">M</option>
+                                        <option value="G">G</option>
+                                        <option value="GG">GG</option>
+                                        <option value="X1">X1</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label>Cor</label>
+                                    <input type="text" id="var-cor" placeholder="Ex: Preta">
+                                </div>
+                            </div>
+                            <label>Quantidade</label>
+                            <input type="number" id="var-qtd" min="1" value="1">
+                            <button type="button" id="btn-add-variante" style="width: 100%; margin-top: 10px; background-color: #3498db; color: white; padding: 8px;">+ Adicionar à Grade</button>
+                            
+                            <ul id="lista-variantes" class="lista-variantes"></ul>
+                        </div>
+
+                        <button type="submit" style="width: 100%; margin-top: 20px; background-color: #27ae60; color: white; padding: 12px;">Salvar Produto no Estoque</button>
+                    </form>
+                </div>
+
+                <div class="card-lista">
+                    <h3>Produtos em Estoque</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Categoria</th>
+                                <th>Preço Venda</th>
+                                <th>Estoque Total</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-produtos">
+                            </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="../js/estoque.js"></script>
+</body>
+</html>

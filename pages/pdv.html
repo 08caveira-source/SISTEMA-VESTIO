@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDV - Sistema Vestio</title>
+    <link rel="stylesheet" href="../css/globais.css">
+    <script type="module" src="../js/auth-guard.js"></script>
+
+    <style>
+        .container-pdv { display: flex; gap: 20px; height: calc(100vh - 120px); }
+        .painel-busca { flex: 6; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow-y: auto; }
+        .painel-carrinho { flex: 4; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        
+        .busca-input { width: 100%; padding: 12px; font-size: 18px; border: 2px solid #3498db; border-radius: 8px; margin-bottom: 20px; outline: none; }
+        
+        .produto-item { border: 1px solid #eee; padding: 10px; margin-bottom: 10px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .produto-info h4 { margin: 0; color: #2c3e50; }
+        .produto-info p { margin: 5px 0 0 0; color: #27ae60; font-weight: bold; }
+        
+        .carrinho-lista { flex: 1; overflow-y: auto; border-bottom: 2px dashed #eee; margin-bottom: 15px; padding-bottom: 10px; }
+        .item-carrinho { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .item-carrinho button { background: #e74c3c; color: white; border: none; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
+        
+        .total-venda { font-size: 24px; font-weight: bold; color: #2c3e50; text-align: right; margin-bottom: 15px; }
+        .btn-finalizar { background: #27ae60; color: white; padding: 15px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; width: 100%; }
+        .btn-finalizar:hover { background: #219150; }
+    </style>
+</head>
+<body style="margin: 0;">
+
+    <header style="background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between;">
+        <h1 style="margin: 0; font-size: 1.5rem;">Sistema Vestio - Caixa (PDV)</h1>
+        <button id="btn-voltar" style="background-color: #34495e; color: white; padding: 5px 15px;">Voltar ao Painel</button>
+    </header>
+
+    <div style="display: flex;">
+        <nav style="width: 250px; background-color: #34495e; padding: 20px; height: calc(100vh - 60px);">
+            <ul style="list-style: none; padding: 0; margin: 0;">
+                <li style="margin-bottom: 10px;"><a href="dashboard.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Início</a></li>
+                <li style="margin-bottom: 10px;"><a href="#" style="color: white; text-decoration: none; display: block; padding: 10px; background-color: #2c3e50; border-radius: 4px;">PDV</a></li>
+                <li style="margin-bottom: 10px;"><a href="estoque.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Estoque</a></li>
+                <li style="margin-bottom: 10px;"><a href="clientes.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Clientes</a></li>
+            </ul>
+        </nav>
+
+        <main style="flex: 1; padding: 20px;">
+            <div class="container-pdv">
+                
+                <div class="painel-busca">
+                    <input type="text" id="input-busca" class="busca-input" placeholder="Buscar produto por nome..." autocomplete="off">
+                    <div id="lista-resultados">
+                        <p style="color: #7f8c8d; text-align: center; margin-top: 50px;">Digite algo para buscar no estoque...</p>
+                    </div>
+                </div>
+
+                <div class="painel-carrinho">
+                    <h3 style="margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px;">Resumo da Venda</h3>
+                    
+                    <div class="carrinho-lista" id="itens-carrinho">
+                        </div>
+
+                    <div class="total-venda" id="total-venda">Total: R$ 0,00</div>
+
+                    <div style="margin-bottom: 10px;">
+                        <label>Cliente (Opcional)</label>
+                        <select id="select-cliente">
+                            <option value="Consumidor Final">Consumidor Final</option>
+                            </select>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label>Forma de Pagamento</label>
+                        <select id="forma-pagamento">
+                            <option value="Dinheiro">Dinheiro (À vista)</option>
+                            <option value="PIX">PIX</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="Crediário">Crediário (Requer Cadastro)</option>
+                        </select>
+                    </div>
+
+                    <button class="btn-finalizar" id="btn-finalizar-venda">Finalizar Venda</button>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="../js/pdv.js"></script>
+</body>
+</html>

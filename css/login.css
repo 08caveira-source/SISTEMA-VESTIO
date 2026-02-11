@@ -1,0 +1,61 @@
+/* css/login.css - Estilos exclusivos para a tela inicial */
+
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    /* Um gradiente moderno de fundo */
+    background: linear-gradient(135deg, var(--cor-primaria), var(--cor-destaque));
+}
+
+.login-box {
+    background-color: white;
+    padding: 40px;
+    border-radius: var(--borda-arredondada);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.login-box h2 {
+    margin-bottom: 5px;
+    color: var(--cor-primaria);
+    font-size: 24px;
+}
+
+.login-box p {
+    margin-bottom: 25px;
+    color: #7f8c8d;
+    font-size: 14px;
+}
+
+.input-group {
+    margin-bottom: 18px;
+    text-align: left;
+}
+
+.input-group label {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--cor-secundaria);
+}
+
+#btn-login {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--cor-destaque);
+    color: white;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+#btn-login:hover {
+    background-color: #2980b9; /* Um azul um pouco mais escuro no hover */
+}
+
+#btn-login:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}

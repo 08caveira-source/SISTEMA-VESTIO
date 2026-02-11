@@ -1,0 +1,63 @@
+/* js/globais.css - Estilos partilhados por todo o sistema */
+
+:root {
+    /* Paleta de Cores do Sistema Vestio */
+    --cor-primaria: #2c3e50;    /* Azul escuro profissional */
+    --cor-secundaria: #34495e;  /* Tom um pouco mais claro para menus */
+    --cor-destaque: #3498db;    /* Azul vibrante para botões principais */
+    --cor-sucesso: #27ae60;     /* Verde para vendas concluídas/caixa */
+    --cor-perigo: #e74c3c;      /* Vermelho para erros, cancelar vendas ou logout */
+    --cor-fundo: #f4f7f6;       /* Cinza muito claro para não cansar a vista */
+    --cor-texto: #333333;       /* Cinza escuro para facilitar a leitura */
+    
+    --borda-arredondada: 8px;
+}
+
+/* Reset básico para garantir que fica igual em todos os navegadores */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--cor-fundo);
+    color: var(--cor-texto);
+}
+
+/* Estilo padrão para Inputs e Selects em todo o sistema */
+input, select {
+    width: 100%;
+    padding: 10px 12px;
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: var(--borda-arredondada);
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.3s;
+}
+
+input:focus, select:focus {
+    border-color: var(--cor-destaque);
+}
+
+/* Estilo padrão para Botões */
+button {
+    cursor: pointer;
+    border: none;
+    border-radius: var(--borda-arredondada);
+    font-size: 16px;
+    transition: background-color 0.3s, transform 0.1s;
+}
+
+button:active {
+    transform: scale(0.98); /* Dá um pequeno efeito de "clique" */
+}
+
+/* Padronização exata da altura do cabeçalho em todas as páginas */
+header {
+    height: 65px !important;
+    align-items: center !important;
+    box-sizing: border-box !important;
+}
