@@ -1,50 +1,69 @@
-// Importações do Firebase Auth e Firestore
 import { auth, db } from './firebase-config.js';
 import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-const loginForm = document.getElementById('loginForm');
-const mensagemErro = document.getElementById('mensagem-erro');
-const btnLogin = document.getElementById('btn-login');
-
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
+// Proteção: Só roda o código quando a tela estiver carregada
+document.addEventListener('DOMContentLoaded', () => {
     
-    const email = document.getElementById('email').value;
-    const senha = document.getElementById('senha').value;
-    
-    btnLogin.innerText = "Autenticando...";
-    btnLogin.disabled = true;
-    mensagemErro.style.display = 'none';
+    const formLogin = document.getElementById('form-login');
+    const msgErro = document.getElementById('msg-erro');
 
-    try {
-        // 1. Faz o login no Firebase Auth
-        const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-        const user = userCredential.user;
-
-        // 2. Busca o nível de acesso (role) no Firestore
-        const userDocRef = doc(db, "usuarios", user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-            const dadosUsuario = userDocSnap.data();
-            const nivelAcesso = dadosUsuario.nivel; // 'admin' ou 'vendedor'
-
-            // Salva o nível no LocalStorage para uso rápido nas outras telas
-            localStorage.setItem('userRole', nivelAcesso);
-            localStorage.setItem('userName', dadosUsuario.nome);
-
-            // 3. Redireciona para o Painel Principal
-            window.location.href = "pages/dashboard.html";
-        } else {
-            throw new Error("Usuário autenticado, mas sem cadastro na base de dados de funcionários.");
-        }
-
-    } catch (error) {
-        console.error("Erro no login:", error);
-        mensagemErro.innerText = "Erro: E-mail ou senha incorretos, ou usuário não autorizado.";
-        mensagemErro.style.display = 'block';
-        btnLogin.innerText = "Entrar";
-        btnLogin.disabled = false;
+    // Se por acaso não achar o formulário, para o script para não dar erro
+    if (!formLogin) {
+        console.error("Erro Crítico: Formulário 'form-login' não encontrado no HTML.");
+        return;
     }
+
+    formLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const email = document.getElementById('email').value;
+        const senha = document.getElementById('senha').value;
+        const btn = document.querySelector('button[type="submit"]');
+
+        btn.innerText = "Verificando...";
+        btn.disabled = true;
+        msgErro.style.display = 'none';
+
+        try {
+            // 1. Login no Firebase
+            const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+            const uid = userCredential.user.uid;
+
+            console.log("Login Auth OK. Verificando cargo...");
+
+            // 2. Verifica Cargo no Banco de Dados
+            const docRef = doc(db, "usuarios_registros", uid);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const dados = docSnap.data();
+                localStorage.setItem('userRole', dados.role);
+                localStorage.setItem('userName', dados.nome);
+            } else {
+                // Se não está na lista de funcionários, é o Admin/Dono
+                localStorage.setItem('userRole', 'admin');
+                localStorage.setItem('userName', 'Administrador');
+            }
+
+            // 3. Redireciona
+            window.location.href = "pages/dashboard.html";
+
+        } catch (error) {
+            console.error("Erro Login:", error);
+            
+            // Mostra mensagem amigável
+            msgErro.style.display = 'block';
+            if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                msgErro.innerText = "E-mail ou senha incorretos.";
+            } else if (error.code === 'auth/too-many-requests') {
+                msgErro.innerText = "Muitas tentativas. Aguarde alguns instantes.";
+            } else {
+                msgErro.innerText = "Erro ao acessar: " + error.code;
+            }
+            
+            btn.innerText = "Entrar";
+            btn.disabled = false;
+        }
+    });
 });

@@ -1,58 +1,176 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel Principal - Sistema Vestio</title>
+    <link rel="shortcut icon" href="#">
     <link rel="stylesheet" href="../css/globais.css">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script type="module" src="../js/auth-guard.js"></script>
+    
+    <style>
+        /* Estilos do Modal (Copiados para funcionar aqui também) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #7f8c8d; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+        .bg-pendente { background-color: #e67e22; }
+        .bg-pago { background-color: #27ae60; }
+        .bg-quitado { background-color: #2c3e50; }
+        
+        .btn-acao { background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+    </style>
 </head>
-<body style="margin: 0;">
+<body style="margin: 0; background-color: #f4f7f6;">
 
-    <header style="background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+    <header style="background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
         <h1 style="margin: 0; font-size: 1.5rem;">Sistema Vestio</h1>
-        <div>
-            <span id="nome-utilizador" style="margin-right: 15px; font-weight: bold;"></span>
-            <button id="btn-logout" style="background-color: #e74c3c; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px;">Terminar Sessão</button>
+        <div style="font-size: 14px;">
+            <span id="nome-utilizador" style="margin-right: 15px; font-weight: bold;">Olá, Usuário</span>
+            <button id="btn-logout" style="background-color: #c0392b; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer;">Sair</button>
         </div>
     </header>
 
-    <div style="display: flex; height: calc(100vh - 60px);">
+    <div style="display: flex; min-height: calc(100vh - 65px);">
         
-        <nav style="width: 250px; background-color: #34495e; padding: 20px;">
-            <ul style="list-style: none; padding: 0; margin: 0;">
-                <li style="margin-bottom: 10px;"><a href="#" style="color: white; text-decoration: none; display: block; padding: 10px; background-color: #2c3e50; border-radius: 4px;">Início</a></li>
-                <li style="margin-bottom: 10px;"><a href="pdv.html" style="color: white; text-decoration: none; display: block; padding: 10px;">PDV</a></li>
-                <li style="margin-bottom: 10px;"><a href="estoque.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Estoque</a></li>
-                <li style="margin-bottom: 10px;"><a href="clientes.html" style="color: white; text-decoration: none; display: block; padding: 10px;">Clientes</a></li>
-            </ul>
+        <nav class="menu-lateral">
+            <div class="titulo-menu">Principal</div>
+            <a href="#" class="menu-link ativo"><span class="menu-icone">🏠</span> Início</a>
+            <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+            <div class="titulo-menu" style="margin-top: 20px;">Gestão</div>
+            <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
+            <a href="clientes.html" class="menu-link"><span class="menu-icone">👥</span> Clientes</a>
+            <a href="relatorios.html" class="menu-link"><span class="menu-icone">📊</span> Relatórios</a>
+            <div class="titulo-menu" style="margin-top: 20px;">Configurações</div>
+            <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
+            <a href="minha-loja.html" class="menu-link"><span class="menu-icone">🏪</span> Minha Loja</a>
         </nav>
 
-        <main style="flex: 1; padding: 30px;">
-            <h2>Resumo de Hoje</h2>
-            <p>Bem-vindo ao painel de controlo do Sistema Vestio. Selecione uma opção no menu à esquerda para começar.</p>
+        <main style="flex: 1; padding: 30px; display: flex; gap: 30px; align-items: flex-start;">
             
-            <div style="display: flex; gap: 20px; margin-top: 20px;">
-                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex: 1;">
-                    <h3 style="margin-top: 0; color: #2c3e50;">Vendas Hoje</h3>
-                    <p id="card-vendas-hoje" style="font-size: 28px; font-weight: bold; color: #27ae60; margin: 10px 0 0 0;">Carregando...</p>
-                </div>
+            <div style="flex: 3; display: flex; flex-direction: column; gap: 25px;">
                 
-                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex: 1;">
-                    <h3 style="margin-top: 0; color: #2c3e50;">Crediário a Receber</h3>
-                    <p id="card-crediario-pendente" style="font-size: 28px; font-weight: bold; color: #e67e22; margin: 10px 0 0 0;">Carregando...</p>
+                <div>
+                    <h2 style="margin-bottom: 5px; color: #2c3e50;">Resumo de Hoje</h2>
+                    <p style="color: #7f8c8d; margin-top: 0;">Visão geral do desempenho diário.</p>
                 </div>
 
-                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex: 1;">
-                    <h3 style="margin-top: 0; color: #2c3e50;">Total em Estoque</h3>
-                    <p id="card-total-pecas" style="font-size: 28px; font-weight: bold; color: #3498db; margin: 10px 0 0 0;">Carregando...</p>
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); flex: 1; min-width: 200px; border-left: 5px solid #27ae60;">
+                        <h3 style="margin: 0; color: #7f8c8d; font-size: 14px; text-transform: uppercase;">Vendas Hoje</h3>
+                        <p id="card-vendas-hoje" style="font-size: 32px; font-weight: bold; color: #2c3e50; margin: 10px 0;">Carregando...</p>
+                        <button onclick="window.location.href='relatorios.html?periodo=hoje'" style="width:100%; background:#e8f5e9; color:#27ae60; border:none; padding:8px; border-radius:4px; cursor:pointer; font-weight: bold; font-size: 12px;">Ver Detalhes ➔</button>
+                    </div>
+                    
+                    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); flex: 1; min-width: 200px; border-left: 5px solid #e67e22;">
+                        <h3 style="margin: 0; color: #7f8c8d; font-size: 14px; text-transform: uppercase;">Crediário a Receber</h3>
+                        <p id="card-crediario-pendente" style="font-size: 32px; font-weight: bold; color: #2c3e50; margin: 10px 0;">Carregando...</p>
+                    </div>
+
+                    <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); flex: 1; min-width: 200px; border-left: 5px solid #3498db;">
+                        <h3 style="margin: 0; color: #7f8c8d; font-size: 14px; text-transform: uppercase;">Valor em Estoque</h3>
+                        <p id="card-valor-estoque" style="font-size: 32px; font-weight: bold; color: #2c3e50; margin: 10px 0;">Carregando...</p>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;">
+                        <h3 style="margin: 0; color: #2c3e50;">Últimas Vendas do Dia</h3>
+                        <small style="color: #95a5a6;">Atualizado em tempo real</small>
+                    </div>
+                    
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="text-align: left; color: #95a5a6; font-size: 13px; border-bottom: 1px solid #eee;">
+                                <th style="padding: 10px;">HORA</th>
+                                <th style="padding: 10px;">CLIENTE</th>
+                                <th style="padding: 10px;">VENDEDOR</th>
+                                <th style="padding: 10px;">TOTAL</th>
+                                <th style="padding: 10px;">PGTO</th>
+                                <th style="padding: 10px;">STATUS</th>
+                                <th style="padding: 10px;">AÇÃO</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-vendas-hoje">
+                            <tr><td colspan="7" style="padding: 30px; text-align: center; color: #ccc;">Carregando vendas...</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+                        <button id="btn-ant" style="padding: 5px 10px; cursor: pointer; background: #ecf0f1; border: none; border-radius: 4px; font-size: 12px;">❮ Anterior</button>
+                        <span id="info-paginacao" style="font-size: 12px; color: #7f8c8d;">Página 1</span>
+                        <button id="btn-prox" style="padding: 5px 10px; cursor: pointer; background: #ecf0f1; border: none; border-radius: 4px; font-size: 12px;">Próximo ❯</button>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div style="flex: 1; min-width: 300px; max-width: 350px;">
+                <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-top: 5px solid #e74c3c;">
+                    <h3 style="margin-top: 0; color: #c0392b; display: flex; align-items: center; gap: 10px; font-size: 16px;">
+                        ⚠️ Reposição Urgente
+                    </h3>
+                    <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 15px;">Itens com 3 unidades ou menos.</p>
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <tbody id="lista-alerta-estoque">
+                                <tr><td style="padding: 15px; text-align: center; color: #ccc;">Verificando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+
         </main>
     </div>
 
-    <script type="module" src="../js/dashboard.js"></script>
+    <div id="modal-detalhes" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('modal-detalhes').style.display='none'">&times;</span>
+            <h3 style="margin-top: 0; color: #2c3e50;">Detalhes da Venda</h3>
+            <p style="color: #7f8c8d; font-size: 12px; margin-bottom: 15px;">
+                Vendedor: <strong id="detalhe-vendedor">-</strong> | Cliente: <strong id="detalhe-cliente">-</strong>
+            </p>
+            <div style="background: #f9f9f9; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+                <table style="width: 100%; font-size: 12px;">
+                    <thead style="border-bottom: 1px dashed #ccc;"><tr><th style="background:none;">Item</th><th style="background:none; text-align: right;">Preço</th></tr></thead>
+                    <tbody id="lista-itens-venda"></tbody>
+                </table>
+            </div>
+            <div style="margin-top: 15px; text-align: right; border-top: 2px solid #eee; padding-top: 10px;">
+                <p style="margin: 5px 0;">Subtotal: <span id="detalhe-subtotal">R$ 0,00</span></p>
+                <p style="margin: 5px 0; color: #c0392b;" id="detalhe-desconto-linha"></p>
+                <h2 style="margin: 5px 0; color: #2c3e50;">Total: <span id="detalhe-total">R$ 0,00</span></h2>
+            </div>
+            <button id="btn-segunda-via" style="width: 100%; background: #3498db; color: white; border: none; padding: 12px; border-radius: 4px; font-weight: bold; margin-top: 15px; cursor: pointer;">🖨️ Imprimir 2ª Via</button>
+        </div>
+    </div>
 
+    <div id="container-cupom-pdf" style="position: absolute; left: -9999px;">
+        <div id="cupom-fiscal" style="width: 80mm; font-family: 'Courier New', monospace; background: #fffbe6; padding: 10px; color: black;">
+            <div style="text-align: center; border-bottom: 1px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
+                <img id="cupom-logo" src="" style="height: 50px; object-fit: contain; display: none; margin: 0 auto;">
+                <h3 id="cupom-nome-loja" style="margin: 5px 0; font-size: 14px;">NOME DA LOJA</h3>
+                <p id="cupom-info-loja" style="font-size: 10px; margin: 0;">CNPJ: 00.000.000/0000-00</p>
+            </div>
+            <div style="font-size: 10px; margin-bottom: 10px;">
+                <p style="margin: 2px 0;">DATA: <span id="cupom-data">00/00/0000</span></p>
+                <p style="margin: 2px 0;">CLIENTE: <span id="cupom-cliente">Consumidor</span></p>
+                <p style="margin: 2px 0;">VENDEDOR: <span id="cupom-vendedor">-</span></p>
+                <p style="margin: 2px 0; font-weight: bold;">*** SEGUNDA VIA ***</p>
+            </div>
+            <table style="width: 100%; font-size: 10px; border-bottom: 1px dashed black; margin-bottom: 10px;">
+                <thead style="text-align: left;"><tr><th>ITEM</th><th style="text-align: right;">VALOR</th></tr></thead>
+                <tbody id="cupom-itens"></tbody>
+            </table>
+            <div style="text-align: right; font-size: 12px; font-weight: bold;">TOTAL: <span id="cupom-total">R$ 0,00</span></div>
+            <div style="text-align: right; font-size: 10px;" id="cupom-desc-info"></div>
+            <div style="text-align: center; font-size: 10px; margin-top: 15px;">*** Obrigado pela preferência! ***</div>
+        </div>
+    </div>
+
+    <script type="module" src="../js/dashboard.js"></script>
 </body>
 </html>

@@ -1,63 +1,154 @@
-/* js/globais.css - Estilos partilhados por todo o sistema */
-
-:root {
-    /* Paleta de Cores do Sistema Vestio */
-    --cor-primaria: #2c3e50;    /* Azul escuro profissional */
-    --cor-secundaria: #34495e;  /* Tom um pouco mais claro para menus */
-    --cor-destaque: #3498db;    /* Azul vibrante para botões principais */
-    --cor-sucesso: #27ae60;     /* Verde para vendas concluídas/caixa */
-    --cor-perigo: #e74c3c;      /* Vermelho para erros, cancelar vendas ou logout */
-    --cor-fundo: #f4f7f6;       /* Cinza muito claro para não cansar a vista */
-    --cor-texto: #333333;       /* Cinza escuro para facilitar a leitura */
-    
-    --borda-arredondada: 8px;
-}
-
-/* Reset básico para garantir que fica igual em todos os navegadores */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
+/* =========================================
+   ESTILOS GERAIS (DESKTOP FIRST)
+   ========================================= */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: var(--cor-fundo);
-    color: var(--cor-texto);
+    margin: 0;
+    background-color: #f4f7f6;
+    color: #333;
 }
 
-/* Estilo padrão para Inputs e Selects em todo o sistema */
-input, select {
-    width: 100%;
-    padding: 10px 12px;
-    margin-top: 5px;
-    border: 1px solid #ccc;
-    border-radius: var(--borda-arredondada);
+/* Layout Principal */
+.menu-lateral {
+    width: 250px;
+    background-color: #2c3e50;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    transition: transform 0.3s ease;
+}
+
+.menu-link {
+    color: #bdc3c7;
+    text-decoration: none;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    transition: 0.3s;
     font-size: 16px;
-    outline: none;
-    transition: border-color 0.3s;
 }
 
-input:focus, select:focus {
-    border-color: var(--cor-destaque);
+.menu-link:hover, .menu-link.ativo {
+    background-color: #34495e;
+    color: white;
+    border-left: 4px solid #3498db;
 }
 
-/* Estilo padrão para Botões */
-button {
-    cursor: pointer;
-    border: none;
-    border-radius: var(--borda-arredondada);
-    font-size: 16px;
-    transition: background-color 0.3s, transform 0.1s;
+.menu-icone {
+    margin-right: 10px;
+    width: 20px;
+    text-align: center;
 }
 
-button:active {
-    transform: scale(0.98); /* Dá um pequeno efeito de "clique" */
+.titulo-menu {
+    color: #7f8c8d;
+    font-size: 12px;
+    text-transform: uppercase;
+    padding: 0 25px;
+    margin-bottom: 5px;
+    margin-top: 10px;
+    font-weight: bold;
 }
 
-/* Padronização exata da altura do cabeçalho em todas as páginas */
-header {
-    height: 65px !important;
-    align-items: center !important;
-    box-sizing: border-box !important;
+/* Botões Padrão */
+button { font-family: inherit; }
+button:active { transform: scale(0.98); }
+
+/* Tabelas e Badges */
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
+.bg-pendente { background-color: #e67e22; }
+.bg-pago { background-color: #27ae60; }
+.bg-quitado { background-color: #2c3e50; }
+
+/* =========================================
+   RESPONSIVIDADE (CELULAR E TABLET)
+   ========================================= */
+@media (max-width: 768px) {
+    
+    /* 1. Ajuste do Layout Geral (Empilhar) */
+    div[style*="display: flex"] {
+        flex-direction: column; /* Transforma linhas em colunas */
+    }
+    
+    /* Exceções: Header e Botões pequenos devem ficar lado a lado */
+    header[style*="display: flex"], 
+    .filtros-box,
+    .botoes-acao,
+    .linha-botoes { 
+        flex-direction: row !important; 
+        flex-wrap: wrap;
+    }
+
+    /* 2. Menu Lateral (Escondido por padrão) */
+    .menu-lateral {
+        position: fixed;
+        top: 60px; /* Altura do Header */
+        left: -100%; /* Esconde na esquerda */
+        width: 80%; /* Ocupa quase toda tela */
+        height: calc(100vh - 60px);
+        z-index: 1000;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+    }
+    .menu-lateral.menu-aberto {
+        transform: translateX(100%); /* Desliza para aparecer */
+        left: -80%; /* Ajuste técnico para o transform */
+    }
+
+    /* 3. Ajuste do Conteúdo Principal */
+    main {
+        padding: 15px !important;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 4. Tabelas com Scroll Horizontal */
+    .tabela-container, 
+    .card-lista,
+    div[style*="overflow-y: auto"] { 
+        overflow-x: auto; 
+        display: block;
+        width: 100%;
+    }
+    table {
+        min-width: 600px; /* Força a tabela a ter largura mínima para não quebrar */
+    }
+
+    /* 5. Dashboard (Cards um abaixo do outro) */
+    .grid-relatorios, 
+    div[style*="display: flex; gap: 20px; flex-wrap: wrap;"] {
+        flex-direction: column !important;
+    }
+    
+    /* 6. PDV (Caixa) */
+    .container-pdv {
+        height: auto !important; /* Remove altura fixa */
+        flex-direction: column !important;
+    }
+    .coluna-esquerda, .coluna-direita {
+        width: 100% !important;
+        flex: none !important;
+    }
+    /* Carrinho com altura fixa no mobile para não ocupar tudo */
+    .carrinho-lista {
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    /* 7. Modal (Tela Cheia) */
+    .modal-content {
+        width: 95% !important;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    /* 8. Fontes e Botões Maiores (Touch) */
+    input, select, button {
+        font-size: 16px !important; /* Evita zoom automático no iPhone */
+        min-height: 44px; /* Tamanho bom para o dedo */
+    }
+    
+    /* 9. Header */
+    h1 { font-size: 1.2rem !important; }
+    #nome-utilizador { display: none; } /* Esconde nome no celular para economizar espaço */
 }

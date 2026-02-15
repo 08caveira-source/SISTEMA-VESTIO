@@ -1,276 +1,252 @@
 import { db } from './firebase-config.js';
-import { collection, doc, getDoc, getDocs, addDoc, updateDoc, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, getDocs, query, where, doc, updateDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-document.getElementById('btn-voltar').addEventListener('click', () => { window.location.href = 'clientes.html'; });
+const params = new URLSearchParams(window.location.search);
+const clienteId = params.get('id');
 
-// Pega o ID do cliente que foi passado na URL
-const urlParams = new URLSearchParams(window.location.search);
-const clienteId = urlParams.get('id');
+// Dados da Loja para o Recibo
+let NOME_LOJA = "MINHA LOJA", CNPJ_LOJA = "", TEL_LOJA = "", LOGO_LOJA = null;
+let vendaAtualParaPDF = null; // Guarda a venda aberta no modal
+
+document.getElementById('btn-voltar').addEventListener('click', () => window.location.href = 'clientes.html');
 
 if (!clienteId) {
-    alert("Cliente não encontrado. Voltando para a tela anterior.");
+    alert("Cliente não especificado.");
     window.location.href = 'clientes.html';
 }
 
-// Elementos da Tela
-const tabelaVendas = document.getElementById('tabela-vendas-pendentes');
-const tabelaParcelas = document.getElementById('tabela-parcelas');
+function formatarDataSegura(data) {
+    if (!data) return '-';
+    if (typeof data.toDate === 'function') return data.toDate().toLocaleDateString('pt-BR');
+    try { return new Date(data).toLocaleDateString('pt-BR'); } catch (e) { return '-'; }
+}
 
-// ==========================================
-// 1. CARREGAR DADOS DO CLIENTE
-// ==========================================
-async function carregarPerfilCliente() {
+// 0. CARREGAR DADOS DA LOJA
+async function carregarDadosLoja() {
     try {
-        const docRef = doc(db, "clientes", clienteId);
-        const docSnap = await getDoc(docRef);
+        const configSnap = await getDoc(doc(db, "configuracoes", "dados_loja"));
+        if (configSnap.exists()) {
+            const d = configSnap.data();
+            NOME_LOJA = d.nome || "MINHA LOJA";
+            CNPJ_LOJA = d.cnpj || "";
+            TEL_LOJA = d.telefone || "";
+            LOGO_LOJA = d.logo || null;
+        }
+    } catch (e) { console.error("Erro config loja:", e); }
+}
 
+// 1. CARREGAR DADOS E SCORE
+async function carregarDadosCliente() {
+    await carregarDadosLoja(); // Garante que temos a logo
+    try {
+        const docSnap = await getDoc(doc(db, "clientes", clienteId));
         if (docSnap.exists()) {
             const cliente = docSnap.data();
-            document.getElementById('nome-cliente-display').innerText = cliente.nome;
-            document.getElementById('cpf-cliente-display').innerText = cliente.cpf;
-            document.getElementById('telefone-cliente-display').innerText = cliente.telefone;
-            document.getElementById('endereco-cliente-display').innerText = cliente.endereco || "Não informado";
-            document.getElementById('limite-cliente-display').innerText = cliente.limiteCredito.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            document.getElementById('info-cliente-container').style.display = 'flex';
+            document.getElementById('nome-cliente-display').innerHTML = `${cliente.nome} <span id="score-display" style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 10px; margin-left: 10px;">⭐ Score: ${cliente.score || 100}</span>`;
+            
+            document.getElementById('cpf-cliente-display').innerText = cliente.cpf || '---';
+            document.getElementById('telefone-cliente-display').innerText = cliente.telefone || '---';
+            document.getElementById('endereco-cliente-display').innerText = cliente.endereco || '---';
+            
+            const limiteTotal = parseFloat(cliente.limiteCredito) || 0;
+            document.getElementById('limite-cliente-display').innerText = limiteTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            
+            calcularDividaReal(limiteTotal);
         }
-    } catch (error) {
-        console.error("Erro ao carregar cliente:", error);
-    }
+    } catch (error) { console.error(error); }
 }
 
-// ==========================================
-// 2. CARREGAR VENDAS, PARCELAS E CALCULAR SCORE
-// ==========================================
-async function carregarVendasEParcelas() {
-    tabelaVendas.innerHTML = '<tr><td colspan="4">Carregando...</td></tr>';
-    tabelaParcelas.innerHTML = '<tr><td colspan="4">Carregando...</td></tr>';
+// 2. CARREGAR TABELAS
+async function carregarVendasEParcelas(limiteTotal) {
+    const tabelaHistorico = document.getElementById('tabela-historico-compras');
+    const tabelaParcelas = document.getElementById('tabela-parcelas');
+    
+    tabelaHistorico.innerHTML = '<tr><td colspan="5">Buscando...</td></tr>';
+    tabelaParcelas.innerHTML = '<tr><td colspan="4">Buscando...</td></tr>';
 
     try {
-        // --- BUSCA VENDAS PENDENTES ---
-        const qVendas = query(collection(db, "vendas"), where("clienteId", "==", clienteId), where("formaPagamento", "==", "Crediário"));
-        const snapshotVendas = await getDocs(qVendas);
-        
-        tabelaVendas.innerHTML = '';
-        if (snapshotVendas.empty) {
-            tabelaVendas.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #7f8c8d;">Nenhuma compra pendente.</td></tr>';
-        }
+        // --- TABELA DE VENDAS ---
+        const qVendas = query(collection(db, "vendas"), where("clienteId", "==", clienteId));
+        const snapVendas = await getDocs(qVendas);
+        tabelaHistorico.innerHTML = ''; 
 
-        snapshotVendas.forEach((documento) => {
-            const venda = documento.data();
-            const id = documento.id;
-            
-            if (venda.statusPagamento === 'Pendente') {
-                const dataFormatada = venda.dataVenda ? venda.dataVenda.toDate().toLocaleDateString('pt-BR') : 'Data Indisponível';
-                const totalF = venda.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        if (snapVendas.empty) tabelaHistorico.innerHTML = '<tr><td colspan="5" style="text-align:center;">Sem histórico.</td></tr>';
 
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${dataFormatada}</td>
-                    <td><strong>${totalF}</strong></td>
-                    <td><span class="badge bg-pendente">Pendente</span></td>
-                    <td><button class="btn-pequeno btn-gerar" onclick="gerarParcelas('${id}', ${venda.total})">Gerar Carnê</button></td>
-                `;
-                tabelaVendas.appendChild(tr);
+        let vendas = [];
+        snapVendas.forEach(d => vendas.push({ id: d.id, ...d.data() }));
+        vendas.sort((a, b) => b.dataVenda - a.dataVenda);
+
+        vendas.forEach(venda => {
+            const dataVenda = formatarDataSegura(venda.dataVenda);
+            let statusTexto = venda.statusPagamento || 'Pago';
+            let statusClass = 'bg-pago'; 
+
+            if (statusTexto === 'Pendente' || statusTexto === 'Parcelado') {
+                statusClass = 'bg-pendente'; statusTexto = 'Parcelado'; 
+            } else if (statusTexto === 'Quitado') {
+                statusClass = 'bg-pago'; statusTexto = 'Quitado';
             }
+
+            const tr = document.createElement('tr');
+            // GUARDAMOS O ID DA VENDA NO BOTÃO PARA ABRIR OS DETALHES
+            tr.innerHTML = `
+                <td>${dataVenda}</td>
+                <td>R$ ${venda.total.toFixed(2).replace('.', ',')}</td>
+                <td>${venda.formaPagamento}</td>
+                <td><span class="badge ${statusClass}">${statusTexto}</span></td>
+                <td>
+                    <button onclick="verDetalhesVenda('${venda.id}')" class="btn-pequeno btn-gerar" style="cursor: pointer;">Ver Itens</button>
+                </td>
+            `;
+            tabelaHistorico.appendChild(tr);
         });
 
-        // --- BUSCA PARCELAS E GERA ANÁLISE ---
-        const qParcelas = query(collection(db, "parcelas"), where("clienteId", "==", clienteId));
-        const snapshotParcelas = await getDocs(qParcelas);
-        
+        // --- TABELA DE PARCELAS ---
+        const qParcelas = query(collection(db, "parcelas"), where("clienteId", "==", clienteId), where("status", "==", "Pendente"));
+        const snapParcelas = await getDocs(qParcelas);
         tabelaParcelas.innerHTML = '';
-        let listaParcelas = [];
-        
-        // Variáveis para o Score do Cliente
-        let pagasNoPrazo = 0;
-        let pagasComAtraso = 0;
 
-        snapshotParcelas.forEach((docParc) => {
-            let p = docParc.data();
-            p.id = docParc.id;
-            listaParcelas.push(p);
+        if (snapParcelas.empty) tabelaParcelas.innerHTML = '<tr><td colspan="4" style="text-align:center; color: #7f8c8d;">Nenhuma parcela em aberto.</td></tr>';
+
+        snapParcelas.forEach(docParcela => {
+            const parcela = docParcela.data();
+            const idParcela = docParcela.id;
+            const dataCompra = formatarDataSegura(parcela.dataCompra);
+            const dataVenc = formatarDataSegura(parcela.vencimento);
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>Compra em ${dataCompra}</td>
+                <td>${dataVenc}</td>
+                <td style="font-weight: bold; color: #c0392b;">R$ ${parcela.valor.toFixed(2).replace('.', ',')}</td>
+                <td><button onclick="abrirModalPagamento('${idParcela}', ${parcela.valor}, '${parcela.vendaId}')" class="btn-pequeno btn-baixa">Receber</button></td>
+            `;
+            tabelaParcelas.appendChild(tr);
         });
 
-        listaParcelas.sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
-
-        if (listaParcelas.length === 0) {
-            tabelaParcelas.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #7f8c8d;">Nenhuma parcela gerada.</td></tr>';
-        } else {
-            listaParcelas.forEach(parcela => {
-                const valorF = parcela.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-                const [ano, mes, dia] = parcela.vencimento.split('-');
-                const dataVencBr = `${dia}/${mes}/${ano}`;
-
-                let badge = '';
-                let infoPagamento = '';
-                let botao = '';
-
-                // Verifica o status da parcela para formatar a tabela e contar pro Score
-                if (parcela.status === 'Pago') {
-                    // Formata a data em que foi pago
-                    const dataPgtoBr = parcela.dataPagamento ? new Date(parcela.dataPagamento).toLocaleDateString('pt-BR') : 'Data Indisponível';
-                    
-                    if (parcela.diasAtraso > 0) {
-                        badge = `<span class="badge" style="background-color: #c0392b;">Pago (Atraso: ${parcela.diasAtraso}d)</span>`;
-                        infoPagamento = `<br><small style="color: #c0392b; font-weight: bold;">Pago em: ${dataPgtoBr}</small>`;
-                        pagasComAtraso++;
-                    } else {
-                        badge = `<span class="badge bg-pago">Pago no Prazo</span>`;
-                        infoPagamento = `<br><small style="color: #27ae60;">Pago em: ${dataPgtoBr}</small>`;
-                        pagasNoPrazo++;
-                    }
-                    botao = '-';
-                } else {
-                    botao = `<button class="btn-pequeno btn-baixa" onclick="darBaixaParcela('${parcela.id}', '${parcela.vencimento}')">Receber R$</button>`;
-                    
-                    // Verifica se a parcela atual que ainda não foi paga já está vencida
-                    const dataHoje = new Date();
-                    dataHoje.setHours(0,0,0,0);
-                    const dataVenc = new Date(parcela.vencimento + 'T00:00:00');
-                    
-                    if (dataHoje > dataVenc) {
-                        badge = '<span class="badge" style="background-color: #e74c3c;">Vencida!</span>';
-                    } else {
-                        badge = '<span class="badge bg-pendente">A Receber</span>';
-                    }
-                }
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${dataVencBr} ${infoPagamento} <br><small style="color:#7f8c8d">${parcela.numeroReferencia}</small></td>
-                    <td><strong>${valorF}</strong></td>
-                    <td>${badge}</td>
-                    <td>${botao}</td>
-                `;
-                tabelaParcelas.appendChild(tr);
-            });
-        }
-
-        // Chama a função para exibir a nota do cliente
-        calcularScoreCliente(pagasNoPrazo, pagasComAtraso);
-
-    } catch (error) {
-        console.error("Erro ao carregar histórico:", error);
-    }
+    } catch (error) { console.error(error); }
 }
 
-// Função que calcula a nota do cliente
-function calcularScoreCliente(noPrazo, comAtraso) {
-    const scoreElement = document.getElementById('score-cliente');
-    const statsElement = document.getElementById('estatisticas-cliente');
-    const totalPagas = noPrazo + comAtraso;
+async function calcularDividaReal(limiteTotal) {
+    let divida = 0;
+    const qP = query(collection(db, "parcelas"), where("clienteId", "==", clienteId), where("status", "==", "Pendente"));
+    const sP = await getDocs(qP);
+    sP.forEach(d => divida += d.data().valor);
     
-    if (totalPagas === 0) {
-        scoreElement.innerText = "Sem Histórico";
-        scoreElement.style.color = "#bdc3c7";
-        statsElement.innerText = "Nenhuma parcela paga ainda.";
-        return;
-    }
+    const disponivel = limiteTotal - divida;
+    const elDisponivel = document.getElementById('limite-disponivel-display');
+    elDisponivel.innerText = disponivel.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    elDisponivel.style.color = disponivel < 0 ? "red" : "#27ae60";
 
-    const taxaAcerto = (noPrazo / totalPagas) * 100;
-    statsElement.innerText = `${totalPagas} parcelas pagas (${noPrazo} em dia, ${comAtraso} atrasadas)`;
-
-    if (taxaAcerto === 100) {
-        scoreElement.innerText = "Excelente (A+)";
-        scoreElement.style.color = "#2ecc71"; 
-    } else if (taxaAcerto >= 80) {
-        scoreElement.innerText = "Bom Pagador (B)";
-        scoreElement.style.color = "#f1c40f"; 
-    } else if (taxaAcerto >= 50) {
-        scoreElement.innerText = "Atenção (C)";
-        scoreElement.style.color = "#e67e22"; 
-    } else {
-        scoreElement.innerText = "Alto Risco (D)";
-        scoreElement.style.color = "#e74c3c"; 
-    }
+    carregarVendasEParcelas(limiteTotal);
 }
 
-// ==========================================
-// 3. GERAR PARCELAS (DIVIDIR A VENDA)
-// ==========================================
-window.gerarParcelas = async function(vendaId, valorTotal) {
-    const qtdParcelasStr = prompt(`Dividir a compra de R$ ${valorTotal.toFixed(2)} em quantas vezes? (Máximo 12)`);
-    const qtdParcelas = parseInt(qtdParcelasStr);
-
-    if (isNaN(qtdParcelas) || qtdParcelas <= 0 || qtdParcelas > 12) {
-        alert("Número de parcelas inválido. Operação cancelada.");
-        return;
-    }
-
-    const valorParcela = valorTotal / qtdParcelas;
-    const dataHoje = new Date();
-
+// 3. VER DETALHES (ABRIR MODAL)
+window.verDetalhesVenda = async function(idVenda) {
     try {
-        // Cria cada parcela no banco de dados
-        for (let i = 1; i <= qtdParcelas; i++) {
-            // Adiciona 1 mês para cada parcela a partir de hoje
-            let vencimento = new Date(dataHoje.getFullYear(), dataHoje.getMonth() + i, dataHoje.getDate());
-            let dataString = vencimento.toISOString().split('T')[0]; // Formato YYYY-MM-DD para o banco
+        const docRef = doc(db, "vendas", idVenda);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const venda = docSnap.data();
+            vendaAtualParaPDF = venda; // Salva para usar no PDF
 
-            await addDoc(collection(db, "parcelas"), {
-                clienteId: clienteId,
-                vendaId: vendaId,
-                numeroReferencia: `Parc. ${i}/${qtdParcelas}`,
-                valor: valorParcela,
-                vencimento: dataString,
-                status: 'Pendente',
-                dataGeracao: serverTimestamp()
-            });
-        }
-
-        // Atualiza a venda para "Parcelado" para ela sumir da lista da esquerda
-        await updateDoc(doc(db, "vendas", vendaId), {
-            statusPagamento: 'Parcelado'
-        });
-
-        alert("Carnê gerado com sucesso!");
-        carregarVendasEParcelas(); // Recarrega a tela
-
-    } catch (error) {
-        console.error("Erro ao gerar parcelas:", error);
-        alert("Erro ao gerar parcelas.");
-    }
-};
-
-// ==========================================
-// 4. DAR BAIXA NA PARCELA (PAGAMENTO INTELIGENTE)
-// ==========================================
-window.darBaixaParcela = async function(parcelaId, vencimentoString) {
-    const confirmar = confirm("Confirmar o recebimento desta parcela? O sistema registrará a data de hoje para a análise do cliente.");
-    
-    if (confirmar) {
-        try {
-            // Verifica as datas para descobrir se houve atraso
-            const dataHoje = new Date();
-            // Pega a data de vencimento e ajusta pro final do dia para não dar falso positivo de atraso
-            const dataVencimento = new Date(vencimentoString + 'T23:59:59'); 
+            // Preenche Cabeçalho do Modal
+            document.getElementById('detalhe-vendedor').innerText = venda.vendedor || 'Desconhecido';
+            document.getElementById('detalhe-data').innerText = formatarDataSegura(venda.dataVenda);
             
-            let diasAtraso = 0;
-
-            if (dataHoje > dataVencimento) {
-                // Calcula a diferença em dias
-                const diferencaTempo = Math.abs(dataHoje - dataVencimento);
-                diasAtraso = Math.ceil(diferencaTempo / (1000 * 60 * 60 * 24));
+            // Preenche Itens
+            const lista = document.getElementById('lista-itens-venda');
+            lista.innerHTML = '';
+            
+            if (venda.itens) {
+                venda.itens.forEach(item => {
+                    lista.innerHTML += `
+                        <tr>
+                            <td>${item.nome} (${item.tamanho})</td>
+                            <td style="text-align: right;">R$ ${item.precoUnitario.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
             }
 
-            await updateDoc(doc(db, "parcelas", parcelaId), {
-                status: 'Pago',
-                dataPagamento: dataHoje.toISOString(), // Salva a data exata da baixa
-                recebidoPor: localStorage.getItem('userName') || "Desconhecido",
-                diasAtraso: diasAtraso // Salva os dias de atraso no banco
-            });
-            
-            alert(diasAtraso > 0 ? `Pagamento registrado com ${diasAtraso} dia(s) de atraso!` : "Pagamento recebido no prazo!");
-            carregarVendasEParcelas(); // Recarrega para atualizar a tabela e o Score
-            
-        } catch (error) {
-            console.error("Erro ao dar baixa:", error);
-            alert("Erro ao processar o pagamento.");
+            // Preenche Totais
+            // Se tiver desconto novo
+            if (venda.descontoPorcentagem > 0) {
+                document.getElementById('detalhe-subtotal').innerText = (venda.totalBruto || venda.total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                document.getElementById('detalhe-desconto-linha').innerText = `Desconto: -${venda.descontoPorcentagem}% (R$ ${(venda.valorDesconto||0).toFixed(2)})`;
+            } else {
+                document.getElementById('detalhe-subtotal').innerText = venda.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                document.getElementById('detalhe-desconto-linha').innerText = "";
+            }
+
+            document.getElementById('detalhe-total').innerText = venda.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            // Abre Modal
+            document.getElementById('modal-detalhes').style.display = 'flex';
         }
-    }
+    } catch (e) { console.error(e); alert("Erro ao carregar detalhes."); }
 };
 
-// Inicia as chamadas ao carregar a página
-document.addEventListener('DOMContentLoaded', () => {
-    carregarPerfilCliente();
-    carregarVendasEParcelas();
+// 4. EMITIR SEGUNDA VIA (PDF)
+document.getElementById('btn-segunda-via').addEventListener('click', () => {
+    if (!vendaAtualParaPDF) return;
+    const v = vendaAtualParaPDF;
+
+    // Preenche o Modelo Invisível
+    document.getElementById('cupom-nome-loja').innerText = NOME_LOJA;
+    document.getElementById('cupom-info-loja').innerText = `CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}`;
+    if (LOGO_LOJA) { const img = document.getElementById('cupom-logo'); img.src = LOGO_LOJA; img.style.display = 'block'; }
+    
+    document.getElementById('cupom-data').innerText = formatarDataSegura(v.dataVenda);
+    document.getElementById('cupom-cliente').innerText = v.clienteNome || "Cliente";
+    document.getElementById('cupom-vendedor').innerText = v.vendedor || "-";
+
+    const tbody = document.getElementById('cupom-itens'); tbody.innerHTML = '';
+    v.itens.forEach(i => tbody.innerHTML += `<tr><td>${i.nome} (${i.tamanho})</td><td style="text-align:right;">${i.precoUnitario.toFixed(2)}</td></tr>`);
+    
+    document.getElementById('cupom-total').innerText = v.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    document.getElementById('cupom-desc-info').innerText = (v.descontoPorcentagem > 0) ? `Desconto Aplicado: ${v.descontoPorcentagem}%` : '';
+
+    // Gera PDF
+    const el = document.getElementById('cupom-fiscal');
+    const opt = { margin: 0, filename: `SegundaVia_${v.dataVenda.seconds}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [80, 200] } };
+    html2pdf().set(opt).from(el).save();
 });
+
+// 5. PAGAMENTO PARCELA
+let parcelaParaPagarId = null, vendaAssociadaId = null;
+
+window.abrirModalPagamento = function(id, valor, vendaId) {
+    parcelaParaPagarId = id; vendaAssociadaId = vendaId;
+    document.getElementById('modal-valor-parcela').innerText = valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    document.getElementById('modal-pagamento').style.display = 'flex';
+};
+
+document.getElementById('btn-confirmar-pgto').addEventListener('click', async () => {
+    if (!parcelaParaPagarId) return;
+    const btn = document.getElementById('btn-confirmar-pgto');
+    btn.innerText = "Processando..."; btn.disabled = true;
+
+    try {
+        await updateDoc(doc(db, "parcelas", parcelaParaPagarId), { status: "Pago", dataPagamento: serverTimestamp() });
+
+        if (vendaAssociadaId) {
+            const qRestantes = query(collection(db, "parcelas"), where("vendaId", "==", vendaAssociadaId), where("status", "==", "Pendente"));
+            const snapRestantes = await getDocs(qRestantes);
+            const pendentes = snapRestantes.docs.filter(d => d.id !== parcelaParaPagarId);
+
+            if (pendentes.length === 0) {
+                await updateDoc(doc(db, "vendas", vendaAssociadaId), { statusPagamento: "Quitado" });
+                alert("Pagamento confirmado! Venda quitada.");
+            } else { alert("Pagamento confirmado!"); }
+        } else { alert("Pagamento confirmado!"); }
+
+        document.getElementById('modal-pagamento').style.display = 'none';
+        location.reload();
+    } catch (error) { console.error("Erro pgto:", error); alert("Erro ao processar."); } 
+    finally { btn.innerText = "Confirmar"; btn.disabled = false; }
+});
+
+document.addEventListener('DOMContentLoaded', carregarDadosCliente);

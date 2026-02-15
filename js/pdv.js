@@ -1,326 +1,270 @@
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, doc, updateDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, getDocs, addDoc, doc, updateDoc, getDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 document.getElementById('btn-voltar').addEventListener('click', () => { window.location.href = 'dashboard.html'; });
 
-// Variáveis Globais
-let estoqueCompleto = []; 
-let carrinho = []; 
-let totalVenda = 0;
+// Globais
+let estoqueCompleto = [], clientesBase = [], clienteSelecionado = null, carrinho = [];
+let totalBruto = 0, totalLiquido = 0, descontoPorcentagem = 0;
+let NOME_LOJA = "MINHA LOJA", CNPJ_LOJA = "", TEL_LOJA = "", LOGO_LOJA = null, SENHA_GERENTE = "1234";
 
-// Elementos da Tela
-const inputBusca = document.getElementById('input-busca');
-const listaResultados = document.getElementById('lista-resultados');
+// Elementos DOM
+const inputBuscaProd = document.getElementById('input-busca');
+const listaResultadosProd = document.getElementById('lista-resultados');
+const inputBuscaCli = document.getElementById('input-busca-cliente');
+const listaResultadosCli = document.getElementById('lista-clientes-busca');
+const displayCli = document.getElementById('cliente-selecionado-display');
+const nomeCliDisplay = document.getElementById('nome-cliente-selecionado');
+const btnRemoverCli = document.getElementById('btn-remover-cliente');
 const divItensCarrinho = document.getElementById('itens-carrinho');
 const divTotalVenda = document.getElementById('total-venda');
 const btnFinalizar = document.getElementById('btn-finalizar-venda');
-const selectCliente = document.getElementById('select-cliente');
+const selectPagamento = document.getElementById('forma-pagamento');
+const divParcelas = document.getElementById('div-parcelas');
+const selectQtdParcelas = document.getElementById('qtd-parcelas');
+const inputDesconto = document.getElementById('input-desconto');
+const btnAplicarDesconto = document.getElementById('btn-aplicar-desconto');
 
-// ==========================================
-// 1. CARREGAR ESTOQUE E CLIENTES
-// ==========================================
-async function carregarDadosPDV() {
-    try {
-        const queryEstoque = await getDocs(collection(db, "produtos"));
-        estoqueCompleto = [];
-        queryEstoque.forEach((doc) => {
-            const prod = doc.data();
-            prod.id = doc.id; 
-            estoqueCompleto.push(prod);
-        });
-    } catch (error) {
-        console.error("Erro ao carregar estoque: ", error);
-    }
-
-    try {
-        const queryClientes = await getDocs(collection(db, "clientes"));
-        selectCliente.innerHTML = '<option value="Consumidor Final" data-telefone="">Consumidor Final</option>';
-        
-        let clientesTemp = [];
-        queryClientes.forEach((doc) => {
-            const cliente = doc.data();
-            cliente.id = doc.id;
-            clientesTemp.push(cliente);
-        });
-
-        clientesTemp.sort((a, b) => a.nome.localeCompare(b.nome));
-
-        clientesTemp.forEach((cliente) => {
-            const option = document.createElement('option');
-            option.value = cliente.id; 
-            option.textContent = cliente.nome;
-            option.dataset.nome = cliente.nome; 
-            option.dataset.limite = cliente.limiteCredito; 
-            // NOVO: Guardamos o telefone do cliente no option
-            option.dataset.telefone = cliente.telefone || ""; 
-            
-            selectCliente.appendChild(option);
-        });
-
-    } catch (error) {
-        console.error("Erro ao carregar clientes: ", error);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', carregarDadosPDV);
-
-// ==========================================
-// 2. SISTEMA DE BUSCA NA TELA
-// ==========================================
-inputBusca.addEventListener('input', (e) => {
-    const termoBusca = e.target.value.toLowerCase();
-    
-    if (termoBusca.length === 0) {
-        listaResultados.innerHTML = '<p style="color: #7f8c8d; text-align: center; margin-top: 50px;">Digite algo para buscar no estoque...</p>';
-        return;
-    }
-
-    const resultados = estoqueCompleto.filter(p => 
-        p.nome.toLowerCase().includes(termoBusca) || 
-        p.marca.toLowerCase().includes(termoBusca)
-    );
-
-    renderizarResultadosBusca(resultados);
+// Controle Parcelas
+selectPagamento.addEventListener('change', () => {
+    divParcelas.style.display = (selectPagamento.value === 'Crediário') ? 'block' : 'none';
 });
 
-function renderizarResultadosBusca(produtos) {
-    listaResultados.innerHTML = '';
+// 1. CARREGAR DADOS
+async function carregarDadosPDV() {
+    try {
+        const configSnap = await getDoc(doc(db, "configuracoes", "dados_loja"));
+        if (configSnap.exists()) {
+            const d = configSnap.data();
+            NOME_LOJA = d.nome || "MINHA LOJA";
+            CNPJ_LOJA = d.cnpj || "";
+            TEL_LOJA = d.telefone || "";
+            LOGO_LOJA = d.logo || null;
+            SENHA_GERENTE = d.senhaGerente || "admin";
+        }
+        
+        const qEstoque = await getDocs(collection(db, "produtos"));
+        estoqueCompleto = [];
+        qEstoque.forEach(d => { 
+            const p = d.data(); 
+            p.id = d.id; 
+            if(!p.nome) p.nome = "Produto sem nome"; 
+            estoqueCompleto.push(p); 
+        });
+        
+        const qClientes = await getDocs(collection(db, "clientes"));
+        clientesBase = [];
+        qClientes.forEach(d => { 
+            const c = d.data(); 
+            c.id = d.id; 
+            if(!c.nome) c.nome = "Cliente sem nome";
+            clientesBase.push(c); 
+        });
 
-    if (produtos.length === 0) {
-        listaResultados.innerHTML = '<p style="color: red; text-align: center;">Nenhum produto encontrado.</p>';
+    } catch (e) { console.error("Erro ao carregar dados:", e); }
+}
+document.addEventListener('DOMContentLoaded', carregarDadosPDV);
+
+// 2. BUSCA CLIENTE
+inputBuscaCli.addEventListener('input', (e) => {
+    const t = e.target.value.toLowerCase();
+    if (!t) { listaResultadosCli.style.display = 'none'; return; }
+    
+    const f = clientesBase.filter(c => c.nome.toLowerCase().includes(t) || (c.cpf && c.cpf.includes(t)));
+    listaResultadosCli.innerHTML = ''; 
+    listaResultadosCli.style.display = 'block'; 
+    
+    if(f.length === 0) {
+        listaResultadosCli.innerHTML = '<div style="padding:10px; color:#777;">Nenhum cliente encontrado.</div>';
         return;
     }
 
-    produtos.forEach(produto => {
-        const precoF = produto.precoVenda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        let opcoesVariantes = '';
+    f.forEach(c => {
+        const d = document.createElement('div');
+        d.style.cssText = 'padding:10px; cursor:pointer; border-bottom:1px solid #eee;';
+        d.innerHTML = `<strong>${c.nome}</strong><br><small>${c.cpf || 'Sem CPF'}</small>`;
+        d.onclick = () => { clienteSelecionado = c; inputBuscaCli.style.display='none'; listaResultadosCli.style.display='none'; displayCli.style.display='block'; nomeCliDisplay.innerText=c.nome; };
+        listaResultadosCli.appendChild(d);
+    });
+});
+btnRemoverCli.addEventListener('click', () => { clienteSelecionado = null; displayCli.style.display='none'; inputBuscaCli.style.display='block'; inputBuscaCli.value = ''; inputBuscaCli.focus(); });
+
+// 3. BUSCA PRODUTO
+inputBuscaProd.addEventListener('input', (e) => {
+    const t = e.target.value.toLowerCase();
+    if (!t) { listaResultadosProd.style.display = 'none'; listaResultadosProd.innerHTML = ''; return; }
+    
+    const res = estoqueCompleto.filter(p => p.nome.toLowerCase().includes(t));
+    listaResultadosProd.innerHTML = '';
+    listaResultadosProd.style.display = 'block';
+
+    if (res.length === 0) {
+        listaResultadosProd.innerHTML = '<div style="padding:10px; color:#777;">Produto não encontrado.</div>';
+        return;
+    }
+
+    res.forEach(p => {
+        let opts = ''; 
+        if(p.grade) { p.grade.forEach((v,i) => { if(v.qtd > 0) opts += `<option value="${i}">${v.tamanho}-${v.cor} (${v.qtd})</option>`; }); }
+        if(!opts) opts='<option disabled>Sem estoque</option>';
         
-        produto.grade.forEach((varItem, index) => {
-            if (varItem.qtd > 0) {
-                opcoesVariantes += `<option value="${index}">${varItem.tamanho} - ${varItem.cor} (${varItem.qtd} un.)</option>`;
-            }
-        });
-
-        if (opcoesVariantes === '') opcoesVariantes = `<option disabled>Sem estoque</option>`;
-
-        const div = document.createElement('div');
-        div.className = 'produto-item';
-        div.innerHTML = `
-            <div class="produto-info">
-                <h4>${produto.nome}</h4>
-                <p>${precoF}</p>
-            </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <select id="select-var-${produto.id}" style="padding: 5px;">${opcoesVariantes}</select>
-                <button onclick="adicionarAoCarrinho('${produto.id}')" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold;">+</button>
+        const d = document.createElement('div'); d.className='produto-item';
+        d.innerHTML = `
+            <div class="produto-info"><h4>${p.nome}</h4><p>R$ ${p.precoVenda.toFixed(2)}</p></div>
+            <div style="display:flex; gap:5px; align-items:center;">
+                <select id="s-${p.id}" style="max-width: 150px;">${opts}</select>
+                <button onclick="addCar('${p.id}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">+</button>
             </div>
         `;
-        listaResultados.appendChild(div);
+        listaResultadosProd.appendChild(d);
     });
-}
+});
 
-// ==========================================
-// 3. ADICIONAR AO CARRINHO
-// ==========================================
-window.adicionarAoCarrinho = function(produtoId) {
-    const produto = estoqueCompleto.find(p => p.id === produtoId);
-    const selectElement = document.getElementById(`select-var-${produtoId}`);
+window.addCar = function(id) {
+    const p = estoqueCompleto.find(x => x.id === id);
+    const sel = document.getElementById(`s-${id}`);
+    if(!sel || sel.disabled || sel.value === "") { alert("Produto sem estoque ou variação inválida."); return; }
+    const idx = sel.value; const v = p.grade[idx];
     
-    if (selectElement.disabled) {
-        alert("Produto sem estoque.");
-        return;
-    }
-    
-    const indexVariante = selectElement.value;
-    const varianteEscolhida = produto.grade[indexVariante];
-
-    carrinho.push({
-        produtoId: produto.id,
-        nome: produto.nome,
-        precoUnitario: produto.precoVenda,
-        tamanho: varianteEscolhida.tamanho,
-        cor: varianteEscolhida.cor,
-        indexGrade: indexVariante 
+    carrinho.push({ 
+        produtoId: p.id, 
+        nome: p.nome, 
+        precoUnitario: p.precoVenda, 
+        precoCusto: p.precoCusto || 0, // <--- CORREÇÃO: AGORA SALVA O CUSTO!
+        tamanho: v.tamanho, 
+        cor: v.cor, 
+        indexGrade: idx 
     });
-
-    atualizarVisualCarrinho();
-    inputBusca.value = '';
-    inputBusca.focus();
-    listaResultados.innerHTML = '';
+    
+    atualizarCarrinho();
+    inputBuscaProd.value = ''; listaResultadosProd.style.display = 'none'; inputBuscaProd.focus();
 };
 
-function atualizarVisualCarrinho() {
-    divItensCarrinho.innerHTML = '';
-    totalVenda = 0;
-
-    if (carrinho.length === 0) {
-        divItensCarrinho.innerHTML = '<p style="color: #7f8c8d; text-align: center; margin-top: 20px;">Carrinho vazio.</p>';
-    } else {
-        carrinho.forEach((item, index) => {
-            totalVenda += item.precoUnitario;
-            const div = document.createElement('div');
-            div.className = 'item-carrinho';
-            div.innerHTML = `
-                <div style="flex: 1;"><strong>${item.nome}</strong><br><small>${item.tamanho} / ${item.cor}</small></div>
-                <div style="text-align: right; margin-right: 15px;">R$ ${item.precoUnitario.toFixed(2).replace('.', ',')}</div>
-                <button onclick="removerDoCarrinho(${index})">X</button>
-            `;
-            divItensCarrinho.appendChild(div);
-        });
-    }
-    divTotalVenda.innerText = totalVenda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-window.removerDoCarrinho = function(index) {
-    carrinho.splice(index, 1);
-    atualizarVisualCarrinho();
-};
-
-// ==========================================
-// 4. GERAR TEXTO DO RECIBO
-// ==========================================
-// ✏️ ALTERE AQUI O NOME DA SUA LOJA:
-const NOME_DA_LOJA = "DISTRITO 51 - VISTA SUA QUEBRADA!"; 
-
-function gerarTextoRecibo(itens, total, formaPgto, nomeCli) {
-    let texto = `*🛍️ ${NOME_DA_LOJA.toUpperCase()} - RECIBO*\n`;
-    texto += `--------------------------------------\n`;
-    texto += `*Cliente:* ${nomeCli}\n`;
-    texto += `*Data:* ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}\n`;
-    texto += `--------------------------------------\n`;
-    texto += `*ITENS DA COMPRA:*\n`;
-    
-    itens.forEach(item => {
-        texto += `▪️ ${item.nome} (${item.tamanho}/${item.cor})\n`;
-        texto += `   Valor: R$ ${item.precoUnitario.toFixed(2).replace('.', ',')}\n`;
+function atualizarCarrinho() {
+    divItensCarrinho.innerHTML = ''; totalBruto = 0;
+    carrinho.forEach((item, i) => {
+        totalBruto += item.precoUnitario;
+        const d = document.createElement('div'); d.className = 'item-carrinho';
+        d.innerHTML = `<div style="flex:1;"><strong>${item.nome}</strong> <small>${item.tamanho}/${item.cor}</small></div><div>R$ ${item.precoUnitario.toFixed(2)}</div><button onclick="rmItem(${i})" style="margin-left:10px;">X</button>`;
+        divItensCarrinho.appendChild(d);
     });
-    
-    texto += `--------------------------------------\n`;
-    texto += `*TOTAL:* R$ ${total.toFixed(2).replace('.', ',')}\n`;
-    texto += `*Pagamento:* ${formaPgto}\n`;
-    texto += `--------------------------------------\n`;
-    texto += `Obrigado pela preferência! Volte sempre. ✨`;
-
-    return texto;
+    calcularTotais();
 }
 
-// ==========================================
-// 5. FINALIZAR VENDA
-// ==========================================
+window.rmItem = function(i) { carrinho.splice(i, 1); atualizarCarrinho(); };
+
+// 4. DESCONTO
+btnAplicarDesconto.addEventListener('click', () => {
+    descontoPorcentagem = parseFloat(inputDesconto.value) || 0;
+    if (descontoPorcentagem < 0) descontoPorcentagem = 0;
+    if (descontoPorcentagem > 100) descontoPorcentagem = 100;
+    calcularTotais();
+});
+
+function calcularTotais() {
+    const valorDesconto = totalBruto * (descontoPorcentagem / 100);
+    totalLiquido = totalBruto - valorDesconto;
+    
+    let textoTotal = `R$ ${totalLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    if (descontoPorcentagem > 0) {
+        textoTotal += ` <small style="color:red; font-size:14px;">(-${descontoPorcentagem}%)</small>`;
+    }
+    divTotalVenda.innerHTML = textoTotal;
+}
+
+// 5. CUPOM PDF
+function gerarCupomPDF(itens, total, pgto, cli, vendedor, descPorc) {
+    document.getElementById('cupom-nome-loja').innerText = NOME_LOJA;
+    document.getElementById('cupom-info-loja').innerText = `CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}`;
+    if (LOGO_LOJA) { const img = document.getElementById('cupom-logo'); img.src = LOGO_LOJA; img.style.display = 'block'; }
+    document.getElementById('cupom-data').innerText = new Date().toLocaleDateString('pt-BR');
+    document.getElementById('cupom-cliente').innerText = cli;
+    document.getElementById('cupom-vendedor').innerText = vendedor;
+
+    const tbody = document.getElementById('cupom-itens'); tbody.innerHTML = '';
+    itens.forEach(i => tbody.innerHTML += `<tr><td>${i.nome} (${i.tamanho})</td><td style="text-align:right;">${i.precoUnitario.toFixed(2)}</td></tr>`);
+    
+    document.getElementById('cupom-total').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    document.getElementById('cupom-desc-info').innerText = descPorc > 0 ? `Desconto: ${descPorc}%` : '';
+
+    const el = document.getElementById('cupom-fiscal');
+    const opt = { margin: 0, filename: `Cupom_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [80, 200] } };
+    html2pdf().set(opt).from(el).save();
+}
+
+// 6. FINALIZAR VENDA
 btnFinalizar.addEventListener('click', async () => {
-    if (carrinho.length === 0) {
-        alert("Adicione produtos ao carrinho antes de finalizar.");
-        return;
+    if (carrinho.length === 0) return alert("Carrinho vazio.");
+
+    if (descontoPorcentagem > 0) {
+        const senhaDigitada = prompt(`Aplicado desconto de ${descontoPorcentagem}%.\n\n⚠️ AUTORIZAÇÃO NECESSÁRIA:\nDigite a Senha de Gerente:`);
+        if (senhaDigitada !== SENHA_GERENTE) {
+            alert("Senha Incorreta! Venda cancelada.");
+            return;
+        }
     }
 
-    const formaPagamento = document.getElementById('forma-pagamento').value;
-    const clienteIdSelecionado = selectCliente.value;
+    const pgto = selectPagamento.value;
     const vendedor = localStorage.getItem('userName') || "Desconhecido";
-    
-    const opcaoSelecionada = selectCliente.options[selectCliente.selectedIndex];
-    const nomeCliente = opcaoSelecionada.value === "Consumidor Final" ? "Consumidor Final" : opcaoSelecionada.dataset.nome;
+    const vendedorRole = localStorage.getItem('userRole') || "vendedor";
 
-    btnFinalizar.innerText = "Calculando...";
-    btnFinalizar.disabled = true;
-
-    // Regra de Trava do Crediário
-    if (formaPagamento === 'Crediário') {
-        if (clienteIdSelecionado === 'Consumidor Final') {
-            alert("⚠️ Para vender no Crediário, selecione um cliente cadastrado.");
-            btnFinalizar.innerText = "Finalizar Venda";
-            btnFinalizar.disabled = false;
+    // Validação Crediário
+    if (pgto === 'Crediário') {
+        if (!clienteSelecionado) { alert("Selecione um cliente."); return; }
+        let divida = 0;
+        const qV = query(collection(db, "vendas"), where("clienteId", "==", clienteSelecionado.id), where("statusPagamento", "==", "Pendente"));
+        const sV = await getDocs(qV); sV.forEach(d => divida += d.data().total);
+        const qP = query(collection(db, "parcelas"), where("clienteId", "==", clienteSelecionado.id), where("status", "==", "Pendente"));
+        const sP = await getDocs(qP); sP.forEach(d => divida += d.data().valor);
+        if (totalLiquido > (clienteSelecionado.limiteCredito - divida)) {
+            alert(`Limite Insuficiente! Disp: R$ ${(clienteSelecionado.limiteCredito - divida).toFixed(2)}`);
             return;
-        }
-
-        const limiteTotal = parseFloat(opcaoSelecionada.dataset.limite) || 0;
-        let dividaAtual = 0;
-
-        try {
-            const qVendas = query(collection(db, "vendas"), where("clienteId", "==", clienteIdSelecionado), where("statusPagamento", "==", "Pendente"));
-            const snapVendas = await getDocs(qVendas);
-            snapVendas.forEach(doc => { dividaAtual += doc.data().total; });
-
-            const qParcelas = query(collection(db, "parcelas"), where("clienteId", "==", clienteIdSelecionado), where("status", "==", "Pendente"));
-            const snapParcelas = await getDocs(qParcelas);
-            snapParcelas.forEach(doc => { dividaAtual += doc.data().valor; });
-        } catch (error) {
-            console.error("Erro ao calcular dívida:", error);
-            btnFinalizar.innerText = "Finalizar Venda";
-            btnFinalizar.disabled = false;
-            return;
-        }
-
-        const limiteDisponivel = limiteTotal - dividaAtual;
-
-        if (totalVenda > limiteDisponivel) {
-            alert(`⛔ Venda Bloqueada!\nLimite Disponível: R$ ${limiteDisponivel.toFixed(2)}\nO valor ultrapassa o limite restante.`);
-            btnFinalizar.innerText = "Finalizar Venda";
-            btnFinalizar.disabled = false;
-            return; 
         }
     }
 
     btnFinalizar.innerText = "Processando...";
+    btnFinalizar.disabled = true;
 
     try {
-        // 1. Salvar Venda
-        const novaVenda = {
+        const valorDescontoReal = totalBruto * (descontoPorcentagem / 100); // Calcula o valor
+
+        const vendaRef = await addDoc(collection(db, "vendas"), {
             itens: carrinho,
-            total: totalVenda,
-            formaPagamento: formaPagamento,
-            clienteId: clienteIdSelecionado === "Consumidor Final" ? null : clienteIdSelecionado,
-            clienteNome: nomeCliente,
-            vendedor: vendedor,
-            dataVenda: serverTimestamp(),
-            statusPagamento: formaPagamento === 'Crediário' ? 'Pendente' : 'Pago'
-        };
-        
-        await addDoc(collection(db, "vendas"), novaVenda);
+            totalBruto: totalBruto,
+            descontoPorcentagem: descontoPorcentagem,
+            valorDesconto: valorDescontoReal, // <--- CORREÇÃO: AGORA SALVA O VALOR DO DESCONTO!
+            total: totalLiquido,
+            formaPagamento: pgto,
+            clienteId: clienteSelecionado?.id || null, 
+            clienteNome: clienteSelecionado?.nome || "Consumidor",
+            vendedor: vendedor, 
+            vendedorRole: vendedorRole,
+            dataVenda: serverTimestamp(), 
+            statusPagamento: pgto === 'Crediário' ? 'Pendente' : 'Pago'
+        });
 
-        // 2. Dar baixa no estoque
+        if (pgto === 'Crediário') {
+            const qtd = parseInt(selectQtdParcelas.value);
+            const valParc = totalLiquido / qtd;
+            for (let i = 1; i <= qtd; i++) {
+                const dv = new Date(); dv.setDate(dv.getDate() + (30 * i));
+                await addDoc(collection(db, "parcelas"), {
+                    vendaId: vendaRef.id, clienteId: clienteSelecionado.id, numeroParcela: i,
+                    valor: valParc, vencimento: dv, dataCompra: serverTimestamp(), status: 'Pendente'
+                });
+            }
+        }
+
         for (const item of carrinho) {
-            const produtoOriginal = estoqueCompleto.find(p => p.id === item.produtoId);
-            produtoOriginal.grade[item.indexGrade].qtd -= 1;
-            produtoOriginal.estoqueTotal -= 1;
-
-            const produtoRef = doc(db, "produtos", item.produtoId);
-            await updateDoc(produtoRef, {
-                grade: produtoOriginal.grade,
-                estoqueTotal: produtoOriginal.estoqueTotal
-            });
+            const p = estoqueCompleto.find(x => x.id === item.produtoId);
+            p.grade[item.indexGrade].qtd -= 1; p.estoqueTotal -= 1;
+            await updateDoc(doc(db, "produtos", item.produtoId), { grade: p.grade, estoqueTotal: p.estoqueTotal });
         }
 
-        // ==========================================
-        // NOVO: COPIA O RECIBO PARA A ÁREA DE TRANSFERÊNCIA
-        // ==========================================
-        const desejaRecibo = confirm("Venda finalizada com sucesso!\n\nDeseja copiar o recibo para enviar no WhatsApp?");
-        
-        if (desejaRecibo) {
-            const textoRecibo = gerarTextoRecibo(carrinho, totalVenda, formaPagamento, nomeCliente);
-            
-            // Comando que copia o texto silenciosamente
-            navigator.clipboard.writeText(textoRecibo).then(() => {
-                alert("✅ Recibo copiado! Vá para a aba do WhatsApp e aperte Ctrl+V.");
-            }).catch(err => {
-                console.error("Erro ao copiar: ", err);
-                alert("Não foi possível copiar automaticamente. Verifique as permissões do navegador.");
-            });
-        } else {
-            // Se o usuário clicar em "Cancelar" no confirm, não faz nada extra
+        if (confirm("Venda Finalizada! Baixar PDF do Cupom?")) {
+            gerarCupomPDF(carrinho, totalLiquido, pgto, clienteSelecionado?.nome || "Consumidor", vendedor, descontoPorcentagem);
         }
-        
-        // Limpa a tela para o próximo cliente
-        carrinho = [];
-        atualizarVisualCarrinho();
-        selectCliente.value = "Consumidor Final";
-        document.getElementById('forma-pagamento').value = "Dinheiro";
-        carregarDadosPDV(); 
-        
-    } catch (error) {
-        console.error("Erro ao finalizar venda:", error);
-        alert("Erro ao processar a venda.");
-    } finally {
-        btnFinalizar.innerText = "Finalizar Venda";
-        btnFinalizar.disabled = false;
-    }
+        setTimeout(() => location.reload(), 2000);
+
+    } catch (e) { console.error(e); alert("Erro ao vender."); btnFinalizar.disabled = false; }
 });

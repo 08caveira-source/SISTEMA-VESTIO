@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Usuários - Sistema Vestio</title>
+    <link rel="stylesheet" href="../css/globais.css">
+    <script type="module" src="../js/auth-guard.js"></script> <style>
+        .container-usuarios { display: flex; gap: 20px; }
+        .card-form { background: white; padding: 25px; border-radius: 8px; flex: 1; box-shadow: 0 2px 5px rgba(0,0,0,0.1); height: fit-content; }
+        .card-lista { background: white; padding: 25px; border-radius: 8px; flex: 2; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; box-sizing: border-box; }
+        
+        button.btn-salvar { background-color: #27ae60; color: white; width: 100%; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
+        button.btn-salvar:hover { background-color: #219150; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #2c3e50; }
+        
+        .badge-admin { background: #2c3e50; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+        .badge-vendedor { background: #3498db; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
+    </style>
+</head>
+<body style="margin: 0; background-color: #f4f7f6;">
+
+    <header style="background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+        <h1 style="margin: 0; font-size: 1.5rem;">Sistema Vestio</h1>
+        <div style="font-size: 14px;">
+            <span id="nome-utilizador" style="margin-right: 15px; font-weight: bold;">Olá, Admin</span>
+            <button id="btn-logout" style="background-color: #c0392b; color: white; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer;">Sair</button>
+        </div>
+    </header>
+
+    <div style="display: flex; min-height: calc(100vh - 65px);">
+        
+        <nav class="menu-lateral">
+            <div class="titulo-menu">Principal</div>
+            <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
+            <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+            
+            <div class="titulo-menu" style="margin-top: 20px;">Gestão</div>
+            <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
+            <a href="clientes.html" class="menu-link"><span class="menu-icone">👥</span> Clientes</a>
+            <a href="relatorios.html" class="menu-link"><span class="menu-icone">📊</span> Relatórios</a> 
+            <div class="titulo-menu" style="margin-top: 20px;">Configurações</div>
+            <a href="#" class="menu-link ativo"><span class="menu-icone">🔐</span> Usuários</a>
+            <a href="minha-loja.html" class="menu-link"><span class="menu-icone">🏪</span> Minha Loja</a>
+        </nav>
+
+        <main style="flex: 1; padding: 30px;">
+            <div class="container-usuarios">
+                
+                <div class="card-form">
+                    <h3 style="margin-top: 0; color: #2c3e50;">Novo Usuário</h3>
+                    <p style="font-size: 12px; color: #7f8c8d; margin-bottom: 20px;">Crie um login para sua equipe.</p>
+                    
+                    <form id="form-usuario">
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" id="nome" placeholder="Ex: Maria Silva" required>
+                        </div>
+                        <div class="form-group">
+                            <label>E-mail de Login</label>
+                            <input type="email" id="email" placeholder="maria@vestio.com" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Senha Provisória</label>
+                            <input type="password" id="senha" placeholder="Mínimo 6 caracteres" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>Função (Cargo)</label>
+                            <select id="role" required>
+                                <option value="vendedor">Vendedor (Apenas Vendas)</option>
+                                <option value="admin">Administrador (Acesso Total)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-salvar" id="btn-submit">Criar Usuário</button>
+                    </form>
+                </div>
+
+                <div class="card-lista">
+                    <h3 style="margin-top: 0; color: #2c3e50;">Equipe Cadastrada</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Cargo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-usuarios">
+                            <tr><td colspan="4" style="text-align: center;">Carregando equipe...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="../js/usuarios.js"></script>
+</body>
+</html>

@@ -5,98 +5,177 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perfil e Crediário - Sistema Vestio</title>
     <link rel="stylesheet" href="../css/globais.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script type="module" src="../js/auth-guard.js"></script>
 
     <style>
-        .card-info-cliente { background: linear-gradient(135deg, #2c3e50, #3498db); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .card-info-cliente { background: linear-gradient(135deg, #2c3e50, #3498db); color: white; padding: 25px; border-radius: 8px; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .card-info-cliente h2 { margin: 0 0 10px 0; }
-        .info-grid { display: flex; gap: 30px; font-size: 16px; }
-        
+        .info-grid { display: flex; gap: 30px; font-size: 16px; margin-top: 15px; }
+
         .container-duplo { display: flex; gap: 20px; }
         .coluna { flex: 1; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        
+
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; font-size: 14px; }
         th { background-color: #ecf0f1; color: #2c3e50; }
-        
-        .badge { padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; color: white; }
-        .bg-pendente { background-color: #f39c12; }
+
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; color: white; }
+        .bg-pendente { background-color: #e67e22; }
         .bg-pago { background-color: #27ae60; }
-        
-        .btn-pequeno { border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; }
+
+        .btn-pequeno { border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; font-size: 12px; }
         .btn-gerar { background-color: #3498db; }
         .btn-baixa { background-color: #27ae60; }
+        
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto; }
+        .close-btn { position: absolute; top: 10px; right: 15px; font-size: 24px; cursor: pointer; color: #7f8c8d; }
     </style>
 </head>
 <body style="margin: 0;">
 
     <header style="background-color: #2c3e50; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
         <h1 style="margin: 0; font-size: 1.5rem;">Sistema Vestio - Gestão de Crediário</h1>
-        <button id="btn-voltar" style="background-color: #e74c3c; color: white; padding: 8px 15px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; font-size: 14px;">⬅️ Voltar aos Clientes</button>
+        <button id="btn-voltar" style="background-color: #e74c3c; color: white; padding: 8px 15px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; font-size: 14px;">Voltar</button>
     </header>
 
-    <main style="padding: 30px; max-width: 1200px; margin: 0 auto;">
-        
-        <div class="card-info-cliente" id="info-cliente-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
-            
-            <div>
-                <h2 id="nome-cliente-display">Carregando...</h2>
-                <div class="info-grid" style="margin-bottom: 10px;">
-                    <div><strong>CPF:</strong> <span id="cpf-cliente-display">-</span></div>
-                    <div><strong>Telefone:</strong> <span id="telefone-cliente-display">-</span></div>
-                    <div><strong>Endereço:</strong> <span id="endereco-cliente-display">-</span></div>
+    <div style="display: flex; min-height: calc(100vh - 65px);">
+        <nav class="menu-lateral">
+            <div class="titulo-menu">Principal</div>
+            <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
+            <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+            <div class="titulo-menu" style="margin-top: 20px;">Gestão</div>
+            <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
+            <a href="clientes.html" class="menu-link ativo"><span class="menu-icone">👥</span> Clientes</a>
+            <a href="relatorios.html" class="menu-link"><span class="menu-icone">📊</span> Relatórios</a>
+            <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
+            <div class="titulo-menu" style="margin-top: 20px;">Configurações</div>
+            <a href="minha-loja.html" class="menu-link"><span class="menu-icone">🏪</span> Minha Loja</a>
+        </nav>
+
+        <main style="flex: 1; padding: 30px;">
+            <div class="card-info-cliente" id="info-cliente-container" style="display: none; justify-content: space-between;">
+                <div>
+                    <h2 id="nome-cliente-display" style="display: flex; align-items: center; gap: 10px;">
+                        Carregando... 
+                        <span id="score-display" style="font-size: 14px; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.3);">⭐ Score: 0</span>
+                    </h2>
+                    <div class="info-grid">
+                        <div><strong>CPF:</strong> <span id="cpf-cliente-display">-</span></div>
+                        <div><strong>Telefone:</strong> <span id="telefone-cliente-display">-</span></div>
+                        <div><strong>Endereço:</strong> <span id="endereco-cliente-display">-</span></div>
+                    </div>
                 </div>
-                <div style="font-size: 18px; background: rgba(0,0,0,0.2); display: inline-block; padding: 5px 15px; border-radius: 4px;">
-                    <strong>Limite Total:</strong> <span id="limite-cliente-display">R$ 0,00</span>
+                <div style="text-align: right;">
+                    <div style="font-size: 14px; opacity: 0.9;">Limite de Crédito</div>
+                    <div style="font-size: 24px; font-weight: bold;" id="limite-cliente-display">R$ 0,00</div>
+                    <div style="font-size: 12px; margin-top: 5px;">Disponível: <strong id="limite-disponivel-display">R$ 0,00</strong></div>
                 </div>
             </div>
 
-            <div style="background: rgba(255,255,255,0.1); padding: 15px 25px; border-radius: 8px; text-align: center; border: 1px solid rgba(255,255,255,0.3); min-width: 250px;">
-                <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #ecf0f1; text-transform: uppercase; letter-spacing: 1px;">Análise de Crédito</h3>
-                <div id="score-cliente" style="font-size: 26px; font-weight: bold; margin-bottom: 5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">-</div>
-                <div id="estatisticas-cliente" style="font-size: 13px; color: #ecf0f1;">Calculando histórico...</div>
-            </div>
-
-        </div>
-
-        <div class="container-duplo">
-            
-            <div class="coluna">
-                <h3 style="margin-top: 0; color: #2c3e50;">Compras Pendentes de Parcelamento</h3>
-                <p style="font-size: 13px; color: #7f8c8d;">Vendas realizadas no PDV aguardando geração do carnê.</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data</th>
-                            <th>Total</th>
-                            <th>Status</th>
-                            <th>Ação</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-vendas-pendentes">
+            <div class="container-duplo">
+                <div class="coluna">
+                    <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px;">Histórico de Compras</h3>
+                    <table style="font-size: 13px;">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Total</th>
+                                <th>Pagamento</th>
+                                <th>Status</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-historico-compras">
+                            <tr><td colspan="5">Carregando...</td></tr>
                         </tbody>
+                    </table>
+                </div>
+
+                <div class="coluna">
+                    <h3 style="margin-top: 0; color: #2c3e50; border-bottom: 2px solid #e67e22; padding-bottom: 10px;">Parcelas em Aberto</h3>
+                    <table style="font-size: 13px;">
+                        <thead>
+                            <tr>
+                                <th>Compra</th>
+                                <th>Vencimento</th>
+                                <th>Valor</th>
+                                <th>Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-parcelas">
+                            <tr><td colspan="4">Carregando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-pagamento" class="modal-overlay">
+        <div style="background:white; padding:25px; border-radius:8px; width:300px; text-align:center;">
+            <h3>Confirmar Baixa</h3>
+            <p>Deseja confirmar o pagamento da parcela de <strong id="modal-valor-parcela">R$ 0,00</strong>?</p>
+            <button id="btn-confirmar-pgto" style="background:#27ae60; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; margin-right:10px;">Confirmar</button>
+            <button onclick="document.getElementById('modal-pagamento').style.display='none'" style="background:#95a5a6; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="modal-detalhes" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn" onclick="document.getElementById('modal-detalhes').style.display='none'">&times;</span>
+            <h3 style="margin-top: 0; color: #2c3e50;">Detalhes da Venda</h3>
+            <p style="color: #7f8c8d; font-size: 12px; margin-bottom: 15px;">
+                Vendedor: <strong id="detalhe-vendedor">-</strong> | Data: <span id="detalhe-data">-</span>
+            </p>
+
+            <div style="background: #f9f9f9; padding: 10px; border-radius: 4px; max-height: 200px; overflow-y: auto;">
+                <table style="width: 100%; font-size: 12px;">
+                    <thead style="border-bottom: 1px dashed #ccc;">
+                        <tr><th style="background:none;">Item</th><th style="background:none; text-align: right;">Preço</th></tr>
+                    </thead>
+                    <tbody id="lista-itens-venda"></tbody>
                 </table>
             </div>
 
-            <div class="coluna">
-                <h3 style="margin-top: 0; color: #2c3e50;">Carnê / Parcelas</h3>
-                <p style="font-size: 13px; color: #7f8c8d;">Controle de pagamentos mensais deste cliente.</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Vencimento / Pagto</th>
-                            <th>Valor</th>
-                            <th>Status</th>
-                            <th>Ação</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-parcelas">
-                        </tbody>
-                </table>
+            <div style="margin-top: 15px; text-align: right; border-top: 2px solid #eee; padding-top: 10px;">
+                <p style="margin: 5px 0;">Subtotal: <span id="detalhe-subtotal">R$ 0,00</span></p>
+                <p style="margin: 5px 0; color: #c0392b;" id="detalhe-desconto-linha"></p>
+                <h2 style="margin: 5px 0; color: #2c3e50;">Total: <span id="detalhe-total">R$ 0,00</span></h2>
             </div>
 
+            <button id="btn-segunda-via" style="width: 100%; background: #3498db; color: white; border: none; padding: 12px; border-radius: 4px; font-weight: bold; margin-top: 15px; cursor: pointer;">
+                🖨️ Emitir Segunda Via (PDF)
+            </button>
         </div>
-    </main>
+    </div>
+
+    <div id="container-cupom-pdf" style="position: absolute; left: -9999px;">
+        <div id="cupom-fiscal" style="width: 80mm; font-family: 'Courier New', monospace; background: #fffbe6; padding: 10px; color: black;">
+            <div style="text-align: center; border-bottom: 1px dashed black; padding-bottom: 10px; margin-bottom: 10px;">
+                <img id="cupom-logo" src="" style="height: 50px; object-fit: contain; display: none; margin: 0 auto;">
+                <h3 id="cupom-nome-loja" style="margin: 5px 0; font-size: 14px;">NOME DA LOJA</h3>
+                <p id="cupom-info-loja" style="font-size: 10px; margin: 0;">CNPJ: 00.000.000/0000-00</p>
+            </div>
+            <div style="font-size: 10px; margin-bottom: 10px;">
+                <p style="margin: 2px 0;">DATA: <span id="cupom-data">00/00/0000</span></p>
+                <p style="margin: 2px 0;">CLIENTE: <span id="cupom-cliente">Consumidor</span></p>
+                <p style="margin: 2px 0;">VENDEDOR: <span id="cupom-vendedor">-</span></p>
+                <p style="margin: 2px 0; font-weight: bold;">*** SEGUNDA VIA ***</p>
+            </div>
+            <table style="width: 100%; font-size: 10px; border-bottom: 1px dashed black; margin-bottom: 10px;">
+                <thead style="text-align: left;"><tr><th>ITEM</th><th style="text-align: right;">VALOR</th></tr></thead>
+                <tbody id="cupom-itens"></tbody>
+            </table>
+            <div style="text-align: right; font-size: 12px; font-weight: bold;">
+                TOTAL: <span id="cupom-total">R$ 0,00</span>
+            </div>
+            <div style="text-align: right; font-size: 10px;" id="cupom-desc-info"></div>
+            <div style="text-align: center; font-size: 10px; margin-top: 15px;">*** Obrigado pela preferência! ***</div>
+        </div>
+    </div>
 
     <script type="module" src="../js/crediario.js"></script>
 </body>
