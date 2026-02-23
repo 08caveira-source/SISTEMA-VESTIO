@@ -62,6 +62,36 @@
             <div class="input-group" style="margin-top:15px"><label>Telefone</label><input type="text" id="loja-tel"></div>
             <div class="input-group" style="margin-top:15px"><label>Endereço</label><input type="text" id="loja-end"></div>
 
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 30px 0;">
+            
+            <h3 style="color: #64D2FF;">Integração Loja Online (E-commerce)</h3>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">
+                Ligue o seu sistema ao WooCommerce ou Shopify para sincronização de estoque e pedidos.
+            </p>
+
+            <div class="input-group">
+                <label>Plataforma</label>
+                <select id="ecom-plataforma" style="width: 100%; padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #334155;">
+                    <option value="nenhuma">Nenhuma</option>
+                    <option value="woocommerce">WooCommerce</option>
+                    <option value="shopify">Shopify</option>
+                </select>
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <label>URL da Loja (ex: https://sualoja.com.br)</label>
+                <input type="text" id="ecom-url" placeholder="https://...">
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <label>Chave do Consumidor (API Key)</label>
+                <input type="text" id="ecom-key" placeholder="ck_xxxxxxxxxxxxxxxxxxxx">
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <label>Segredo do Consumidor (API Secret)</label>
+                <input type="password" id="ecom-secret" placeholder="cs_xxxxxxxxxxxxxxxxxxxx">
+            </div>
             <button id="btn-salvar-config" class="btn-salvar" style="width: 100%; margin-top: 25px;">💾 SALVAR ALTERAÇÕES</button>
         </div>
     </main>
@@ -88,6 +118,15 @@
                 document.getElementById('loja-end').value = d.endereco || '';
                 document.getElementById('juros-crediario').value = d.jurosCrediario || 0;
                 document.getElementById('senha-gerente').value = d.senhaGerente || 'admin';
+                
+                // Carregar campos de E-commerce
+                if(document.getElementById('ecom-plataforma')) {
+                    document.getElementById('ecom-plataforma').value = d.ecom_plataforma || 'nenhuma';
+                    document.getElementById('ecom-url').value = d.ecom_url || '';
+                    document.getElementById('ecom-key').value = d.ecom_key || '';
+                    document.getElementById('ecom-secret').value = d.ecom_secret || '';
+                }
+
                 if(d.logo) {
                     logoBase64 = d.logo;
                     document.getElementById('preview-logo').src = d.logo;
@@ -127,6 +166,13 @@
                         endereco: document.getElementById('loja-end').value,
                         jurosCrediario: parseFloat(document.getElementById('juros-crediario').value),
                         senhaGerente: document.getElementById('senha-gerente').value,
+                        
+                        // Salvando campos de E-commerce
+                        ecom_plataforma: document.getElementById('ecom-plataforma').value,
+                        ecom_url: document.getElementById('ecom-url').value,
+                        ecom_key: document.getElementById('ecom-key').value,
+                        ecom_secret: document.getElementById('ecom-secret').value,
+
                         logo: logoBase64
                     }, { merge: true });
                     

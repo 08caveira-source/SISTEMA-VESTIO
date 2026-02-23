@@ -90,3 +90,63 @@ function configurarMenuMobile() {
         });
     }
 }
+
+import { onSnapshot, query, where, collection } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { db } from './firebase-config.js';
+
+// Função para escutar pedidos online de forma global
+function iniciarNotificacoesGlobais() {
+    const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+    if (!empresaId) return;
+
+    // Referência à coleção de vendas online da empresa atual
+    const pedidosRef = collection(db, "empresas", empresaId, "vendas_online");
+    const q = query(pedidosRef, where("status_integracao", "==", "pendente"));
+
+    let isInitialLoad = true;
+
+    onSnapshot(q, (snapshot) => {
+        if (isInitialLoad) {
+            isInitialLoad = false;
+            return; // Evita que dispare alertas dos pedidos que já estavam pendentes ao fazer login
+        }
+
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+                const pedido = change.doc.data();
+                
+                // Dispara a notificação visual e sonora em qualquer ecrã do sistema
+                if (window.Swal) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: `🛒 Nova venda online! Cliente: ${pedido.clienteNome}`,
+                        text: 'Vá a "Pedidos Online" para separar o stock.',
+                        showConfirmButton: true,
+                        confirmButtonText: 'Ver Pedido',
+                        timer: 10000,
+                        timerProgressBar: true,
+                        background: '#1e293b',
+                        color: '#fff',
+                        iconColor: '#27ae60'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "online.html";
+                        }
+                    });
+                }
+                
+                // Opcional: Tocar um pequeno som de notificação (Beep)
+                try {
+                    const audio = new Audio('data:audio/mp3;base64,//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq//NExAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq'); 
+                    // Nota: Substituir o base64 acima por um MP3 real de "ding" curto se desejar som.
+                    // audio.play();
+                } catch(e){}
+            }
+        });
+    });
+}
+
+// Inicia as notificações assim que o auth-guard validar a sessão
+setTimeout(iniciarNotificacoesGlobais, 2000);
