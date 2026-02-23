@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minha Loja - Vestio</title>
+    <link rel="stylesheet" href="../css/globais.css">
+</head>
+<body>
+    <nav class="menu-lateral">
+        <h3 class="titulo-menu">Principal</h3>
+        <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
+        <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+        
+        <h3 class="titulo-menu">Gestão</h3>
+        <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
+        <a href="clientes.html" class="menu-link"><span class="menu-icone">👥</span> Clientes</a>
+        <a href="relatorios.html" class="menu-link"><span class="menu-icone">📊</span> Relatórios</a>
+        
+        <h3 class="titulo-menu">Integrações</h3>
+        <a href="online.html" class="menu-link"><span class="menu-icone">🌐</span> Pedidos Online</a>
+        
+        <h3 class="titulo-menu">Configurações</h3>
+        <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
+        <a href="minha-loja.html" class="menu-link"><span class="menu-icone">⚙️</span> Minha Loja</a>
+    </nav>
+
+    <header>
+        <h1>Configurações da Loja</h1>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <span id="nome-utilizador">Admin</span>
+            <button id="btn-logout" style="background: linear-gradient(135deg, #FF453A, #c41e15) !important; width: auto; padding: 0 20px;">SAIR</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="card-config" style="max-width: 600px; margin: 0 auto;">
+            <h3>Dados Empresariais (Cupom & Recibos)</h3>
+            
+            <div class="input-group">
+                <label>Nome Fantasia</label>
+                <input type="text" id="loja-nome" placeholder="Ex: Boutique Vestio">
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <label>CNPJ / CPF</label>
+                <input type="text" id="loja-cnpj" placeholder="00.000.000/0000-00">
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <label>Telefone / WhatsApp</label>
+                <input type="text" id="loja-tel" placeholder="(00) 99999-9999">
+            </div>
+
+            <div class="input-group" style="margin-top: 15px;">
+                <label>Endereço Completo</label>
+                <input type="text" id="loja-end" placeholder="Rua, Número, Bairro, Cidade">
+            </div>
+
+            <button id="btn-salvar-config" class="btn-salvar" style="width: 100%; margin-top: 25px;">
+                💾 Salvar Configurações
+            </button>
+        </div>
+    </main>
+
+    <script type="module">
+        import { db, auth } from '../js/firebase-config.js';
+        import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        
+        document.addEventListener('DOMContentLoaded', async () => {
+            const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+            const userName = localStorage.getItem('VESTIO_USER_NAME');
+            if(document.getElementById('nome-utilizador')) document.getElementById('nome-utilizador').innerText = userName || 'Admin';
+
+            if(!empresaId) return;
+
+            const docRef = doc(db, "empresas", empresaId, "configuracoes", "dados_loja");
+            const snap = await getDoc(docRef);
+            
+            if(snap.exists()){
+                const d = snap.data();
+                document.getElementById('loja-nome').value = d.nome || '';
+                document.getElementById('loja-cnpj').value = d.cnpj || '';
+                document.getElementById('loja-tel').value = d.telefone || '';
+                document.getElementById('loja-end').value = d.endereco || '';
+            }
+
+            document.getElementById('btn-salvar-config').onclick = async () => {
+                const btn = document.getElementById('btn-salvar-config');
+                btn.innerText = "Salvando...";
+                await setDoc(docRef, {
+                    nome: document.getElementById('loja-nome').value,
+                    cnpj: document.getElementById('loja-cnpj').value,
+                    telefone: document.getElementById('loja-tel').value,
+                    endereco: document.getElementById('loja-end').value
+                });
+                btn.innerText = "Salvo com Sucesso!";
+                setTimeout(() => btn.innerText = "💾 Salvar Configurações", 2000);
+            };
+            
+            document.getElementById('btn-logout').onclick = async () => {
+                await signOut(auth); localStorage.clear(); window.location.href="../index.html";
+            };
+        });
+    </script>
+</body>
+</html>

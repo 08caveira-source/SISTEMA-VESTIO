@@ -1,224 +1,264 @@
-import { db } from './firebase-config.js';
-import { collection, addDoc, getDocs, serverTimestamp, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { db, auth } from './firebase-config.js';
+import { 
+    collection, addDoc, getDocs, doc, deleteDoc, updateDoc, 
+    query, orderBy, limit, getDoc, Timestamp 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-document.getElementById('btn-voltar').addEventListener('click', () => { window.location.href = 'dashboard.html'; });
+// Variáveis de Controle
+let gradeTemporaria = []; 
+let editandoId = null; 
 
-// VARIÁVEIS GLOBAIS
-let gradeTemporaria = [];
-let produtoEmEdicaoId = null;
-let listaCompletaProdutos = []; // Guarda tudo que veio do banco
-let listaFiltrada = []; // Guarda o resultado da busca
-let paginaAtual = 1;
-const itensPorPagina = 10; // QUANTIDADE POR PÁGINA
-
-const formProduto = document.getElementById('form-produto');
-const btnSubmit = document.querySelector('#form-produto button[type="submit"]');
-const btnAddVariante = document.getElementById('btn-add-variante');
-const listaVariantes = document.getElementById('lista-variantes');
-const inputBusca = document.getElementById('filtro-busca');
-
-// ==========================================
-// PAGINAÇÃO E RENDERIZAÇÃO
-// ==========================================
-function renderizarTabela() {
-    const tabela = document.getElementById('tabela-produtos');
-    tabela.innerHTML = '';
-
-    // Calcula índices
-    const inicio = (paginaAtual - 1) * itensPorPagina;
-    const fim = inicio + itensPorPagina;
-    const itensPagina = listaFiltrada.slice(inicio, fim); // Pega só o pedaço da página
-    
-    const totalPaginas = Math.ceil(listaFiltrada.length / itensPorPagina) || 1;
-    document.getElementById('info-paginacao').innerText = `Página ${paginaAtual} de ${totalPaginas}`;
-
-    if (itensPagina.length === 0) {
-        tabela.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Nenhum produto encontrado.</td></tr>';
+document.addEventListener('DOMContentLoaded', () => {
+    const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+    if (!empresaId) {
+        alert("Sessão inválida.");
+        window.location.href = "../index.html";
         return;
     }
+    
+    document.getElementById('nome-utilizador').innerText = localStorage.getItem('VESTIO_USER_NAME') || 'Admin';
 
-    const role = localStorage.getItem('userRole');
+    carregarProdutos(empresaId);
 
-    itensPagina.forEach((produto) => {
-        const precoFormatado = produto.precoVenda.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        
-        // Imagem
-        const imgHtml = produto.imagemUrl 
-            ? `<img src="${produto.imagemUrl}" class="foto-tabela" style="width:50px; height:50px; object-fit:cover; border-radius:4px;" alt="${produto.nome}">`
-            : `<div style="width:50px; height:50px; background:#eee; display:flex; align-items:center; justify-content:center; color:#ccc; border-radius:4px; font-size:10px;">Sem Foto</div>`;
+    // Botão Adicionar à Grade
+    document.getElementById('btn-add-grade').addEventListener('click', () => {
+        const tamanho = document.getElementById('tamanho-grade').value;
+        const cor = document.getElementById('cor-grade').value.toUpperCase();
+        const qtd = parseInt(document.getElementById('qtd-grade').value);
 
-        // Botões
-        let botoesAcao = `<button onclick="visualizarProduto('${produto.id}')" style="background: #3498db; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">Ver</button>`;
-        if (role === 'admin') {
-            botoesAcao += `
-                <button onclick="editarProduto('${produto.id}')" style="background: #f39c12; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">Editar</button>
-                <button onclick="deletarProduto('${produto.id}')" style="background: #e74c3c; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;">Excluir</button>
-            `;
+        if (!cor || qtd <= 0) {
+            Swal.fire('Atenção', 'Preencha a cor e quantidade.', 'warning');
+            return;
         }
 
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${imgHtml}</td>
-            <td><strong>${produto.nome}</strong><br><small style="color:#7f8c8d;">${produto.marca}</small></td>
-            <td>${produto.categoria}</td>
-            <td>${precoFormatado}</td>
-            <td>${produto.estoqueTotal} un.</td>
-            <td>${botoesAcao}</td>
-        `;
-        tabela.appendChild(tr);
+        gradeTemporaria.push({ tamanho, cor, qtd });
+        renderizarGradeVisual();
+        
+        document.getElementById('cor-grade').value = '';
+        document.getElementById('qtd-grade').value = 1;
+        document.getElementById('cor-grade').focus();
     });
 
-    // Controla botões
-    document.getElementById('btn-ant').disabled = paginaAtual === 1;
-    document.getElementById('btn-prox').disabled = paginaAtual === totalPaginas;
-    document.getElementById('btn-ant').style.opacity = paginaAtual === 1 ? "0.5" : "1";
-    document.getElementById('btn-prox').style.opacity = paginaAtual === totalPaginas ? "0.5" : "1";
+    // Botão Salvar Produto
+    document.getElementById('btn-salvar-produto').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-salvar-produto');
+        const nome = document.getElementById('nome-produto').value;
+        const categoria = document.getElementById('categoria-produto').value;
+        const marca = document.getElementById('marca-produto').value;
+        const custo = parseFloat(document.getElementById('preco-custo').value) || 0;
+        const venda = parseFloat(document.getElementById('preco-venda').value) || 0;
+
+        if (!nome || !venda) {
+            Swal.fire('Erro', 'Nome e Preço de Venda são obrigatórios.', 'error');
+            return;
+        }
+
+        if (gradeTemporaria.length === 0) {
+            Swal.fire('Atenção', 'Adicione pelo menos um item à grade.', 'warning');
+            return;
+        }
+
+        const estoqueTotal = gradeTemporaria.reduce((acc, item) => acc + item.qtd, 0);
+
+        btn.disabled = true;
+        btn.innerText = "Salvando...";
+
+        try {
+            const produtoData = {
+                nome, 
+                categoria, 
+                marca, 
+                precoCusto: custo, 
+                precoVenda: venda,
+                grade: gradeTemporaria,
+                estoqueTotal: estoqueTotal,
+                dataAtualizacao: Timestamp.now()
+            };
+
+            if (editandoId) {
+                await updateDoc(doc(db, "empresas", empresaId, "produtos", editandoId), produtoData);
+                Swal.fire('Sucesso', 'Produto atualizado!', 'success');
+            } else {
+                produtoData.dataCriacao = Timestamp.now();
+                await addDoc(collection(db, "empresas", empresaId, "produtos"), produtoData);
+                Swal.fire('Sucesso', 'Produto cadastrado!', 'success');
+            }
+
+            limparFormulario();
+            carregarProdutos(empresaId);
+
+        } catch (error) {
+            console.error("Erro ao salvar:", error);
+            Swal.fire('Erro', 'Erro ao salvar produto.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "Salvar Produto";
+        }
+    });
+
+    document.getElementById('btn-cancelar-edicao').addEventListener('click', limparFormulario);
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+        await signOut(auth);
+        localStorage.clear();
+        window.location.href = "../index.html";
+    });
+});
+
+function renderizarGradeVisual() {
+    const lista = document.getElementById('lista-grade-visual');
+    lista.innerHTML = '';
+
+    gradeTemporaria.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.style.cssText = "background:rgba(255,255,255,0.05); padding:5px 10px; margin-bottom:5px; border-radius:6px; display:flex; justify-content:space-between; font-size:11px; color:white; align-items:center;";
+        div.innerHTML = `
+            <span><b>${item.tamanho}</b> - ${item.cor} (${item.qtd})</span>
+            <button onclick="window.removerItemGrade(${index})" style="background:none; border:none; color:#FF453A; cursor:pointer;">✕</button>
+        `;
+        lista.appendChild(div);
+    });
 }
 
-// Eventos de Paginação
-document.getElementById('btn-ant').addEventListener('click', () => {
-    if (paginaAtual > 1) { paginaAtual--; renderizarTabela(); }
-});
-document.getElementById('btn-prox').addEventListener('click', () => {
-    const totalPaginas = Math.ceil(listaFiltrada.length / itensPorPagina);
-    if (paginaAtual < totalPaginas) { paginaAtual++; renderizarTabela(); }
-});
+window.removerItemGrade = function(index) {
+    gradeTemporaria.splice(index, 1);
+    renderizarGradeVisual();
+}
 
-// Evento de Busca
-inputBusca.addEventListener('input', (e) => {
-    const termo = e.target.value.toLowerCase();
-    listaFiltrada = listaCompletaProdutos.filter(p => 
-        p.nome.toLowerCase().includes(termo) || 
-        p.marca.toLowerCase().includes(termo) ||
-        p.categoria.toLowerCase().includes(termo)
-    );
-    paginaAtual = 1; // Volta pra primeira página ao buscar
-    renderizarTabela();
-});
+async function carregarProdutos(empresaId) {
+    const tbody = document.getElementById('lista-produtos');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; font-size:12px;">Carregando...</td></tr>';
 
-
-// ==========================================
-// CARREGAR DADOS INICIAIS
-// ==========================================
-async function carregarProdutos() {
-    const tabela = document.getElementById('tabela-produtos');
-    tabela.innerHTML = '<tr><td colspan="6">Carregando...</td></tr>';
-    
     try {
-        const querySnapshot = await getDocs(collection(db, "produtos"));
-        listaCompletaProdutos = [];
-        
-        querySnapshot.forEach((doc) => {
-            const p = doc.data();
-            p.id = doc.id;
-            listaCompletaProdutos.push(p);
+        // LIMITADO A 6 PARA NÃO POLUIR
+        const q = query(
+            collection(db, "empresas", empresaId, "produtos"),
+            orderBy("dataAtualizacao", "desc"),
+            limit(6) 
+        );
+
+        const snapshot = await getDocs(q);
+        tbody.innerHTML = '';
+
+        if (snapshot.empty) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; font-size:12px;">Nenhum produto.</td></tr>';
+            return;
+        }
+
+        snapshot.forEach(docSnap => {
+            const prod = docSnap.data();
+            const tr = document.createElement('tr');
+            // Estilo mais compacto na tabela
+            tr.innerHTML = `
+                <td style="padding: 8px;">
+                    <div style="font-weight:bold; font-size:13px; color:white;">${prod.nome}</div>
+                </td>
+                <td style="padding: 8px; font-size:12px;">${prod.categoria}</td>
+                <td style="padding: 8px; font-size:12px; color:#30D158;">R$ ${parseFloat(prod.precoVenda).toFixed(2)}</td>
+                <td style="padding: 8px;"><span class="badge" style="background:rgba(10,132,255,0.1); color:#64D2FF; font-size:10px; padding:2px 6px;">${prod.estoqueTotal} un</span></td>
+                <td style="padding: 8px; display:flex; gap:5px;">
+                    <button onclick="window.verGrade('${docSnap.id}')" style="background:none; border:none; cursor:pointer; font-size:14px;" title="Ver Grade">🔍</button>
+                    <button onclick="window.editarProduto('${docSnap.id}')" style="background:none; border:none; cursor:pointer; font-size:14px;" title="Editar">✏️</button>
+                    <button onclick="window.excluirProduto('${docSnap.id}')" style="background:none; border:none; cursor:pointer; font-size:14px;" title="Excluir">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
         });
 
-        listaFiltrada = [...listaCompletaProdutos]; // Inicializa a filtrada com tudo
-        renderizarTabela();
-
-    } catch (error) { console.error(error); }
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Erro ao carregar.</td></tr>';
+    }
 }
 
-// ==========================================
-// FUNÇÕES DE CADASTRO / EDIÇÃO (MANTIDAS)
-// ==========================================
-btnAddVariante.addEventListener('click', () => {
-    const tamanho = document.getElementById('var-tamanho').value;
-    const cor = document.getElementById('var-cor').value.trim() || 'Padrão';
-    const qtd = parseInt(document.getElementById('var-qtd').value);
-    if (qtd > 0) {
-        gradeTemporaria.push({ tamanho, cor, qtd });
-        atualizarListaVariantes();
-        document.getElementById('var-cor').value = ''; document.getElementById('var-qtd').value = '1';
-    } else { alert("Qtd deve ser maior que zero."); }
-});
-
-function atualizarListaVariantes() {
-    listaVariantes.innerHTML = '';
-    gradeTemporaria.forEach((item, index) => {
-        const li = document.createElement('li');
-        li.innerHTML = `<span><b>${item.tamanho}</b> - ${item.cor} (${item.qtd} un.)</span><button type="button" onclick="removerVariante(${index})" style="background: red; color: white; border: none; padding: 2px 8px; border-radius: 4px;">X</button>`;
-        listaVariantes.appendChild(li);
-    });
-}
-window.removerVariante = function(index) { gradeTemporaria.splice(index, 1); atualizarListaVariantes(); };
-
-formProduto.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const role = localStorage.getItem('userRole');
-    if (role === 'vendedor') { alert("Vendedores não podem alterar produtos."); return; }
-    if (gradeTemporaria.length === 0) { alert("Adicione grade."); return; }
-
-    const estoqueTotal = gradeTemporaria.reduce((total, item) => total + item.qtd, 0);
-    const dadosProduto = {
-        nome: document.getElementById('nome').value,
-        categoria: document.getElementById('categoria').value,
-        marca: document.getElementById('marca').value,
-        precoCusto: parseFloat(document.getElementById('precoCusto').value),
-        precoVenda: parseFloat(document.getElementById('precoVenda').value),
-        grade: gradeTemporaria,
-        estoqueTotal: estoqueTotal
-    };
-
-    try {
-        if (produtoEmEdicaoId) {
-            await updateDoc(doc(db, "produtos", produtoEmEdicaoId), dadosProduto);
-            alert("Produto atualizado!");
-            cancelarEdicao();
+// Visualizar Grade (Modal)
+window.verGrade = async function(id) {
+    const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+    const docRef = doc(db, "empresas", empresaId, "produtos", id);
+    const snap = await getDoc(docRef);
+    
+    if (snap.exists()) {
+        const p = snap.data();
+        let html = '<ul style="text-align:left; list-style:none; padding:0; margin:0;">';
+        if (p.grade && p.grade.length > 0) {
+            p.grade.forEach(g => {
+                html += `<li style="padding:5px; border-bottom:1px solid #333; display:flex; justify-content:space-between; font-size:13px;">
+                    <span>Tam: <b>${g.tamanho}</b> | Cor: <b>${g.cor}</b></span>
+                    <span>Qtd: <b>${g.qtd}</b></span>
+                </li>`;
+            });
         } else {
-            dadosProduto.dataEntrada = serverTimestamp();
-            dadosProduto.ativo = true;
-            await addDoc(collection(db, "produtos"), dadosProduto);
-            alert("Produto cadastrado!");
+            html += '<li>Sem grade definida.</li>';
         }
-        formProduto.reset(); gradeTemporaria = []; atualizarListaVariantes(); carregarProdutos();
-    } catch (error) { console.error(error); alert("Erro ao salvar."); }
-});
-
-// EDIÇÃO E VISUALIZAÇÃO
-window.editarProduto = function(id) {
-    const produto = listaCompletaProdutos.find(p => p.id === id);
-    if (!produto) return;
-    document.getElementById('nome').value = produto.nome;
-    document.getElementById('categoria').value = produto.categoria;
-    document.getElementById('marca').value = produto.marca;
-    document.getElementById('precoCusto').value = produto.precoCusto;
-    document.getElementById('precoVenda').value = produto.precoVenda;
-    gradeTemporaria = [...produto.grade];
-    atualizarListaVariantes();
-    produtoEmEdicaoId = id;
-    btnSubmit.innerText = "Atualizar Produto"; btnSubmit.style.backgroundColor = "#f39c12";
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-function cancelarEdicao() {
-    produtoEmEdicaoId = null;
-    btnSubmit.innerText = "Salvar Produto"; btnSubmit.style.backgroundColor = "#27ae60";
+        html += '</ul>';
+        
+        Swal.fire({
+            title: p.nome,
+            html: html,
+            background: '#1e293b',
+            color: '#fff',
+            confirmButtonText: 'Fechar'
+        });
+    }
 }
 
-window.visualizarProduto = function(id) {
-    const produto = listaCompletaProdutos.find(p => p.id === id);
-    const role = localStorage.getItem('userRole');
-    if (!produto) return;
-    document.getElementById('view-nome').innerText = produto.nome;
-    document.getElementById('view-marca').innerText = produto.marca;
-    document.getElementById('view-categoria').innerText = produto.categoria;
-    document.getElementById('view-total').innerText = produto.estoqueTotal;
-    document.getElementById('view-custo').innerText = role === 'admin' ? (produto.precoCusto||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}) : '---';
-    document.getElementById('view-venda').innerText = produto.precoVenda.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    const listaGrade = document.getElementById('view-grade'); listaGrade.innerHTML = '';
-    if (produto.grade) { produto.grade.forEach(item => {
-        const li = document.createElement('li'); li.style.cssText = "padding: 5px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between;";
-        li.innerHTML = `<span>Tam <b>${item.tamanho}</b> - Cor ${item.cor}</span><strong>${item.qtd} un.</strong>`;
-        listaGrade.appendChild(li);
-    }); }
-    document.getElementById('modal-visualizar').style.display = 'flex';
-};
+window.editarProduto = async function(id) {
+    const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+    const docRef = doc(db, "empresas", empresaId, "produtos", id);
+    const snap = await getDoc(docRef);
 
-window.fecharModal = function() { document.getElementById('modal-visualizar').style.display = 'none'; };
-window.deletarProduto = async function(id) {
-    if(confirm("Excluir?")) { await deleteDoc(doc(db, "produtos", id)); carregarProdutos(); }
-};
+    if (snap.exists()) {
+        const d = snap.data();
+        editandoId = id;
 
-document.addEventListener('DOMContentLoaded', carregarProdutos);
+        document.getElementById('nome-produto').value = d.nome;
+        document.getElementById('categoria-produto').value = d.categoria;
+        document.getElementById('marca-produto').value = d.marca;
+        document.getElementById('preco-custo').value = d.precoCusto;
+        document.getElementById('preco-venda').value = d.precoVenda;
+
+        gradeTemporaria = d.grade || [];
+        renderizarGradeVisual();
+
+        document.getElementById('btn-salvar-produto').innerText = "Atualizar";
+        document.getElementById('btn-cancelar-edicao').style.display = 'block';
+        
+        // Rolar suavemente para o topo do form
+        document.querySelector('.card-form').scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+window.excluirProduto = async function(id) {
+    const res = await Swal.fire({
+        title: 'Excluir?',
+        text: "Essa ação não pode ser desfeita.",
+        icon: 'warning',
+        showCancelButton: true,
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Sim, excluir'
+    });
+
+    if(res.isConfirmed) {
+        const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+        await deleteDoc(doc(db, "empresas", empresaId, "produtos", id));
+        carregarProdutos(empresaId);
+        Swal.fire({title: 'Excluído!', icon: 'success', background: '#1e293b', color: '#fff'});
+    }
+}
+
+function limparFormulario() {
+    editandoId = null;
+    document.getElementById('nome-produto').value = '';
+    document.getElementById('marca-produto').value = '';
+    document.getElementById('preco-custo').value = '';
+    document.getElementById('preco-venda').value = '';
+    
+    gradeTemporaria = [];
+    renderizarGradeVisual();
+    
+    document.getElementById('btn-salvar-produto').innerText = "Salvar Produto";
+    document.getElementById('btn-cancelar-edicao').style.display = 'none';
+}

@@ -1,270 +1,152 @@
-import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, doc, updateDoc, getDoc, serverTimestamp, query, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { db, auth } from './firebase-config.js';
+import { collection, addDoc, getDocs, query, where, Timestamp, updateDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-document.getElementById('btn-voltar').addEventListener('click', () => { window.location.href = 'dashboard.html'; });
+let carrinho = [], clienteSelecionado = null, produtosCache = [], clientesCache = [], jurosConfig = 0;
 
-// Globais
-let estoqueCompleto = [], clientesBase = [], clienteSelecionado = null, carrinho = [];
-let totalBruto = 0, totalLiquido = 0, descontoPorcentagem = 0;
-let NOME_LOJA = "MINHA LOJA", CNPJ_LOJA = "", TEL_LOJA = "", LOGO_LOJA = null, SENHA_GERENTE = "1234";
+document.addEventListener('DOMContentLoaded', async () => {
+    const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+    if (!empresaId) return window.location.href="../index.html";
+    document.getElementById('nome-utilizador').innerText = localStorage.getItem('VESTIO_USER_NAME') || 'Vendedor';
 
-// Elementos DOM
-const inputBuscaProd = document.getElementById('input-busca');
-const listaResultadosProd = document.getElementById('lista-resultados');
-const inputBuscaCli = document.getElementById('input-busca-cliente');
-const listaResultadosCli = document.getElementById('lista-clientes-busca');
-const displayCli = document.getElementById('cliente-selecionado-display');
-const nomeCliDisplay = document.getElementById('nome-cliente-selecionado');
-const btnRemoverCli = document.getElementById('btn-remover-cliente');
-const divItensCarrinho = document.getElementById('itens-carrinho');
-const divTotalVenda = document.getElementById('total-venda');
-const btnFinalizar = document.getElementById('btn-finalizar-venda');
-const selectPagamento = document.getElementById('forma-pagamento');
-const divParcelas = document.getElementById('div-parcelas');
-const selectQtdParcelas = document.getElementById('qtd-parcelas');
-const inputDesconto = document.getElementById('input-desconto');
-const btnAplicarDesconto = document.getElementById('btn-aplicar-desconto');
-
-// Controle Parcelas
-selectPagamento.addEventListener('change', () => {
-    divParcelas.style.display = (selectPagamento.value === 'Crediário') ? 'block' : 'none';
-});
-
-// 1. CARREGAR DADOS
-async function carregarDadosPDV() {
     try {
-        const configSnap = await getDoc(doc(db, "configuracoes", "dados_loja"));
-        if (configSnap.exists()) {
-            const d = configSnap.data();
-            NOME_LOJA = d.nome || "MINHA LOJA";
-            CNPJ_LOJA = d.cnpj || "";
-            TEL_LOJA = d.telefone || "";
-            LOGO_LOJA = d.logo || null;
-            SENHA_GERENTE = d.senhaGerente || "admin";
+        const configSnap = await getDoc(doc(db, "empresas", empresaId, "configuracoes", "dados_loja"));
+        if(configSnap.exists()) {
+            jurosConfig = configSnap.data().jurosCrediario || 0;
+            document.getElementById('info-juros').innerText = `Juros: ${jurosConfig}%`;
         }
-        
-        const qEstoque = await getDocs(collection(db, "produtos"));
-        estoqueCompleto = [];
-        qEstoque.forEach(d => { 
-            const p = d.data(); 
-            p.id = d.id; 
-            if(!p.nome) p.nome = "Produto sem nome"; 
-            estoqueCompleto.push(p); 
-        });
-        
-        const qClientes = await getDocs(collection(db, "clientes"));
-        clientesBase = [];
-        qClientes.forEach(d => { 
-            const c = d.data(); 
-            c.id = d.id; 
-            if(!c.nome) c.nome = "Cliente sem nome";
-            clientesBase.push(c); 
-        });
+    } catch(e) {}
 
-    } catch (e) { console.error("Erro ao carregar dados:", e); }
-}
-document.addEventListener('DOMContentLoaded', carregarDadosPDV);
+    carregarProdutosCache(empresaId); carregarClientesCache(empresaId);
 
-// 2. BUSCA CLIENTE
-inputBuscaCli.addEventListener('input', (e) => {
-    const t = e.target.value.toLowerCase();
-    if (!t) { listaResultadosCli.style.display = 'none'; return; }
+    document.getElementById('busca-produto').addEventListener('input', (e) => filtrarProdutos(e.target.value));
+    document.getElementById('busca-cliente').addEventListener('input', (e) => filtrarClientes(e.target.value));
+    document.getElementById('btn-finalizar').addEventListener('click', () => finalizarVenda(empresaId));
+    document.getElementById('valor-desconto').addEventListener('input', atualizarTotal);
+    document.getElementById('qtd-parcelas').addEventListener('input', atualizarTotal);
     
-    const f = clientesBase.filter(c => c.nome.toLowerCase().includes(t) || (c.cpf && c.cpf.includes(t)));
-    listaResultadosCli.innerHTML = ''; 
-    listaResultadosCli.style.display = 'block'; 
-    
-    if(f.length === 0) {
-        listaResultadosCli.innerHTML = '<div style="padding:10px; color:#777;">Nenhum cliente encontrado.</div>';
-        return;
-    }
-
-    f.forEach(c => {
-        const d = document.createElement('div');
-        d.style.cssText = 'padding:10px; cursor:pointer; border-bottom:1px solid #eee;';
-        d.innerHTML = `<strong>${c.nome}</strong><br><small>${c.cpf || 'Sem CPF'}</small>`;
-        d.onclick = () => { clienteSelecionado = c; inputBuscaCli.style.display='none'; listaResultadosCli.style.display='none'; displayCli.style.display='block'; nomeCliDisplay.innerText=c.nome; };
-        listaResultadosCli.appendChild(d);
+    document.getElementById('forma-pagamento').addEventListener('change', (e) => {
+        document.getElementById('area-parcelas').style.display = (e.target.value === 'Crediário') ? 'block' : 'none';
+        atualizarTotal();
     });
+
+    document.getElementById('btn-logout').addEventListener('click', async () => { await signOut(auth); window.location.href = "../index.html"; });
 });
-btnRemoverCli.addEventListener('click', () => { clienteSelecionado = null; displayCli.style.display='none'; inputBuscaCli.style.display='block'; inputBuscaCli.value = ''; inputBuscaCli.focus(); });
 
-// 3. BUSCA PRODUTO
-inputBuscaProd.addEventListener('input', (e) => {
-    const t = e.target.value.toLowerCase();
-    if (!t) { listaResultadosProd.style.display = 'none'; listaResultadosProd.innerHTML = ''; return; }
-    
-    const res = estoqueCompleto.filter(p => p.nome.toLowerCase().includes(t));
-    listaResultadosProd.innerHTML = '';
-    listaResultadosProd.style.display = 'block';
+async function carregarProdutosCache(empresaId) {
+    const snap = await getDocs(query(collection(db, "empresas", empresaId, "produtos")));
+    produtosCache = []; snap.forEach(doc => produtosCache.push({ id: doc.id, ...doc.data() }));
+}
+async function carregarClientesCache(empresaId) {
+    const snap = await getDocs(query(collection(db, "empresas", empresaId, "clientes")));
+    clientesCache = []; snap.forEach(doc => clientesCache.push({ id: doc.id, ...doc.data() }));
+}
 
-    if (res.length === 0) {
-        listaResultadosProd.innerHTML = '<div style="padding:10px; color:#777;">Produto não encontrado.</div>';
-        return;
-    }
-
+function filtrarProdutos(texto) { /* Lógica igual aos arquivos anteriores */ 
+    const div = document.getElementById('sugestoes-produtos'); div.innerHTML = '';
+    if(texto.length<2){ div.style.display='none'; return; }
+    const res = produtosCache.filter(p=>p.nome.toLowerCase().includes(texto.toLowerCase())||(p.codigo && p.codigo.includes(texto))).slice(0,5);
     res.forEach(p => {
-        let opts = ''; 
-        if(p.grade) { p.grade.forEach((v,i) => { if(v.qtd > 0) opts += `<option value="${i}">${v.tamanho}-${v.cor} (${v.qtd})</option>`; }); }
-        if(!opts) opts='<option disabled>Sem estoque</option>';
-        
-        const d = document.createElement('div'); d.className='produto-item';
-        d.innerHTML = `
-            <div class="produto-info"><h4>${p.nome}</h4><p>R$ ${p.precoVenda.toFixed(2)}</p></div>
-            <div style="display:flex; gap:5px; align-items:center;">
-                <select id="s-${p.id}" style="max-width: 150px;">${opts}</select>
-                <button onclick="addCar('${p.id}')" style="background:#3498db; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">+</button>
-            </div>
-        `;
-        listaResultadosProd.appendChild(d);
+        const d = document.createElement('div'); d.style.cssText="padding:10px; border-bottom:1px solid #333; cursor:pointer; color:white;";
+        d.innerHTML=`<b>${p.nome}</b> <span style='float:right; color:#64D2FF'>R$ ${p.precoVenda}</span>`;
+        d.onclick=()=>{ adicionarAoCarrinho(p); document.getElementById('busca-produto').value=''; div.style.display='none'; };
+        div.appendChild(d);
     });
-});
-
-window.addCar = function(id) {
-    const p = estoqueCompleto.find(x => x.id === id);
-    const sel = document.getElementById(`s-${id}`);
-    if(!sel || sel.disabled || sel.value === "") { alert("Produto sem estoque ou variação inválida."); return; }
-    const idx = sel.value; const v = p.grade[idx];
-    
-    carrinho.push({ 
-        produtoId: p.id, 
-        nome: p.nome, 
-        precoUnitario: p.precoVenda, 
-        precoCusto: p.precoCusto || 0, // <--- CORREÇÃO: AGORA SALVA O CUSTO!
-        tamanho: v.tamanho, 
-        cor: v.cor, 
-        indexGrade: idx 
-    });
-    
-    atualizarCarrinho();
-    inputBuscaProd.value = ''; listaResultadosProd.style.display = 'none'; inputBuscaProd.focus();
-};
-
-function atualizarCarrinho() {
-    divItensCarrinho.innerHTML = ''; totalBruto = 0;
-    carrinho.forEach((item, i) => {
-        totalBruto += item.precoUnitario;
-        const d = document.createElement('div'); d.className = 'item-carrinho';
-        d.innerHTML = `<div style="flex:1;"><strong>${item.nome}</strong> <small>${item.tamanho}/${item.cor}</small></div><div>R$ ${item.precoUnitario.toFixed(2)}</div><button onclick="rmItem(${i})" style="margin-left:10px;">X</button>`;
-        divItensCarrinho.appendChild(d);
-    });
-    calcularTotais();
+    div.style.display = res.length ? 'block' : 'none';
 }
 
-window.rmItem = function(i) { carrinho.splice(i, 1); atualizarCarrinho(); };
+function filtrarClientes(texto) { /* Lógica igual */
+    const div = document.getElementById('sugestoes-clientes'); div.innerHTML = '';
+    if(texto.length<2){ div.style.display='none'; return; }
+    const res = clientesCache.filter(c=>c.nome.toLowerCase().includes(texto.toLowerCase())||(c.cpf && c.cpf.includes(texto))).slice(0,5);
+    res.forEach(c => {
+        const d = document.createElement('div'); d.style.cssText="padding:10px; border-bottom:1px solid #333; cursor:pointer; color:white;";
+        d.innerText=c.nome;
+        d.onclick=()=>{ clienteSelecionado=c; document.getElementById('busca-cliente').value=c.nome; div.style.display='none'; };
+        div.appendChild(d);
+    });
+    div.style.display = res.length ? 'block' : 'none';
+}
 
-// 4. DESCONTO
-btnAplicarDesconto.addEventListener('click', () => {
-    descontoPorcentagem = parseFloat(inputDesconto.value) || 0;
-    if (descontoPorcentagem < 0) descontoPorcentagem = 0;
-    if (descontoPorcentagem > 100) descontoPorcentagem = 100;
-    calcularTotais();
-});
+function adicionarAoCarrinho(produto) {
+    const ex = carrinho.find(i => i.id === produto.id);
+    if(ex) ex.qtd++; else carrinho.push({ id: produto.id, nome: produto.nome, precoUnitario: parseFloat(produto.precoVenda), qtd: 1, custo: produto.precoCusto||0 });
+    renderizarCarrinho();
+}
 
-function calcularTotais() {
-    const valorDesconto = totalBruto * (descontoPorcentagem / 100);
-    totalLiquido = totalBruto - valorDesconto;
+function renderizarCarrinho() {
+    const div = document.getElementById('lista-carrinho'); div.innerHTML = '';
+    carrinho.forEach((item, idx) => {
+        div.innerHTML += `<div style="padding:10px; border-bottom:1px solid #333; display:flex; justify-content:space-between; color:white;">
+            <div>${item.nome}<br><small style="color:#94a3b8">${item.qtd}x R$ ${item.precoUnitario}</small></div>
+            <div><span style="color:#64D2FF; font-weight:bold;">R$ ${item.qtd*item.precoUnitario}</span> <button onclick="window.removeItem(${idx})" style="color:#FF453A; background:none; border:none; margin-left:10px;">X</button></div>
+        </div>`;
+    });
+    atualizarTotal();
+}
+window.removeItem = (idx) => { carrinho.splice(idx, 1); renderizarCarrinho(); };
+
+function atualizarTotal() {
+    let sub = carrinho.reduce((a, b) => a + (b.qtd * b.precoUnitario), 0);
+    let desc = parseFloat(document.getElementById('valor-desconto').value) || 0;
+    let total = Math.max(0, sub - desc);
     
-    let textoTotal = `R$ ${totalLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    if (descontoPorcentagem > 0) {
-        textoTotal += ` <small style="color:red; font-size:14px;">(-${descontoPorcentagem}%)</small>`;
+    if (document.getElementById('forma-pagamento').value === 'Crediário' && jurosConfig > 0) {
+        total = total * (1 + (jurosConfig / 100));
     }
-    divTotalVenda.innerHTML = textoTotal;
+    document.getElementById('total-venda').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return total;
 }
 
-// 5. CUPOM PDF
-function gerarCupomPDF(itens, total, pgto, cli, vendedor, descPorc) {
-    document.getElementById('cupom-nome-loja').innerText = NOME_LOJA;
-    document.getElementById('cupom-info-loja').innerText = `CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}`;
-    if (LOGO_LOJA) { const img = document.getElementById('cupom-logo'); img.src = LOGO_LOJA; img.style.display = 'block'; }
-    document.getElementById('cupom-data').innerText = new Date().toLocaleDateString('pt-BR');
-    document.getElementById('cupom-cliente').innerText = cli;
-    document.getElementById('cupom-vendedor').innerText = vendedor;
+async function finalizarVenda(empresaId) {
+    if (carrinho.length === 0) return Swal.fire('Erro', 'Carrinho vazio', 'error');
+    const pgto = document.getElementById('forma-pagamento').value;
+    let parcelas = 1;
 
-    const tbody = document.getElementById('cupom-itens'); tbody.innerHTML = '';
-    itens.forEach(i => tbody.innerHTML += `<tr><td>${i.nome} (${i.tamanho})</td><td style="text-align:right;">${i.precoUnitario.toFixed(2)}</td></tr>`);
-    
-    document.getElementById('cupom-total').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    document.getElementById('cupom-desc-info').innerText = descPorc > 0 ? `Desconto: ${descPorc}%` : '';
-
-    const el = document.getElementById('cupom-fiscal');
-    const opt = { margin: 0, filename: `Cupom_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [80, 200] } };
-    html2pdf().set(opt).from(el).save();
-}
-
-// 6. FINALIZAR VENDA
-btnFinalizar.addEventListener('click', async () => {
-    if (carrinho.length === 0) return alert("Carrinho vazio.");
-
-    if (descontoPorcentagem > 0) {
-        const senhaDigitada = prompt(`Aplicado desconto de ${descontoPorcentagem}%.\n\n⚠️ AUTORIZAÇÃO NECESSÁRIA:\nDigite a Senha de Gerente:`);
-        if (senhaDigitada !== SENHA_GERENTE) {
-            alert("Senha Incorreta! Venda cancelada.");
-            return;
-        }
-    }
-
-    const pgto = selectPagamento.value;
-    const vendedor = localStorage.getItem('userName') || "Desconhecido";
-    const vendedorRole = localStorage.getItem('userRole') || "vendedor";
-
-    // Validação Crediário
     if (pgto === 'Crediário') {
-        if (!clienteSelecionado) { alert("Selecione um cliente."); return; }
-        let divida = 0;
-        const qV = query(collection(db, "vendas"), where("clienteId", "==", clienteSelecionado.id), where("statusPagamento", "==", "Pendente"));
-        const sV = await getDocs(qV); sV.forEach(d => divida += d.data().total);
-        const qP = query(collection(db, "parcelas"), where("clienteId", "==", clienteSelecionado.id), where("status", "==", "Pendente"));
-        const sP = await getDocs(qP); sP.forEach(d => divida += d.data().valor);
-        if (totalLiquido > (clienteSelecionado.limiteCredito - divida)) {
-            alert(`Limite Insuficiente! Disp: R$ ${(clienteSelecionado.limiteCredito - divida).toFixed(2)}`);
-            return;
-        }
+        if (!clienteSelecionado) return Swal.fire('Erro', 'Selecione um cliente!', 'error');
+        parcelas = parseInt(document.getElementById('qtd-parcelas').value) || 1;
     }
 
-    btnFinalizar.innerText = "Processando...";
-    btnFinalizar.disabled = true;
+    const total = atualizarTotal();
+    const btn = document.getElementById('btn-finalizar');
+    btn.disabled = true; btn.innerText = "Processando...";
 
     try {
-        const valorDescontoReal = totalBruto * (descontoPorcentagem / 100); // Calcula o valor
-
-        const vendaRef = await addDoc(collection(db, "vendas"), {
-            itens: carrinho,
-            totalBruto: totalBruto,
-            descontoPorcentagem: descontoPorcentagem,
-            valorDesconto: valorDescontoReal, // <--- CORREÇÃO: AGORA SALVA O VALOR DO DESCONTO!
-            total: totalLiquido,
-            formaPagamento: pgto,
-            clienteId: clienteSelecionado?.id || null, 
-            clienteNome: clienteSelecionado?.nome || "Consumidor",
-            vendedor: vendedor, 
-            vendedorRole: vendedorRole,
-            dataVenda: serverTimestamp(), 
-            statusPagamento: pgto === 'Crediário' ? 'Pendente' : 'Pago'
-        });
-
+        let listaParcelas = [];
         if (pgto === 'Crediário') {
-            const qtd = parseInt(selectQtdParcelas.value);
-            const valParc = totalLiquido / qtd;
-            for (let i = 1; i <= qtd; i++) {
-                const dv = new Date(); dv.setDate(dv.getDate() + (30 * i));
-                await addDoc(collection(db, "parcelas"), {
-                    vendaId: vendaRef.id, clienteId: clienteSelecionado.id, numeroParcela: i,
-                    valor: valParc, vencimento: dv, dataCompra: serverTimestamp(), status: 'Pendente'
+            const valorP = total / parcelas;
+            for(let i=1; i<=parcelas; i++){
+                const d = new Date(); d.setMonth(d.getMonth()+i);
+                listaParcelas.push({ numero: i, valor: valorP, vencimento: Timestamp.fromDate(d), pago: false });
+            }
+        }
+
+        const venda = {
+            dataVenda: Timestamp.now(),
+            clienteId: clienteSelecionado ? clienteSelecionado.id : null,
+            clienteNome: clienteSelecionado ? clienteSelecionado.nome : 'Consumidor',
+            itens: carrinho,
+            total: total,
+            formaPagamento: pgto,
+            statusPagamento: pgto === 'Crediário' ? 'Crediário' : 'Pago',
+            parcelas: listaParcelas,
+            vendedor: localStorage.getItem('VESTIO_USER_NAME')
+        };
+
+        const ref = await addDoc(collection(db, "empresas", empresaId, "vendas"), venda);
+        
+        if (pgto === 'Crediário') {
+            for(const p of listaParcelas) {
+                await addDoc(collection(db, "empresas", empresaId, "parcelas"), {
+                    vendaId: ref.id, clienteId: clienteSelecionado.id, numero: p.numero, valor: p.valor, vencimento: p.vencimento, status: 'Pendente', dataCompra: Timestamp.now()
                 });
             }
         }
 
-        for (const item of carrinho) {
-            const p = estoqueCompleto.find(x => x.id === item.produtoId);
-            p.grade[item.indexGrade].qtd -= 1; p.estoqueTotal -= 1;
-            await updateDoc(doc(db, "produtos", item.produtoId), { grade: p.grade, estoqueTotal: p.estoqueTotal });
-        }
-
-        if (confirm("Venda Finalizada! Baixar PDF do Cupom?")) {
-            gerarCupomPDF(carrinho, totalLiquido, pgto, clienteSelecionado?.nome || "Consumidor", vendedor, descontoPorcentagem);
-        }
-        setTimeout(() => location.reload(), 2000);
-
-    } catch (e) { console.error(e); alert("Erro ao vender."); btnFinalizar.disabled = false; }
-});
+        Swal.fire('Sucesso', 'Venda realizada!', 'success');
+        carrinho = []; clienteSelecionado = null; renderizarCarrinho();
+        document.getElementById('busca-produto').value = '';
+    } catch(e) { console.error(e); Swal.fire('Erro', 'Falha ao salvar', 'error'); }
+    finally { btn.disabled = false; btn.innerText = "FINALIZAR VENDA"; }
+}

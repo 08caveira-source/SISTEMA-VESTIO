@@ -1,126 +1,109 @@
 import { auth, db } from './firebase-config.js';
 import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { collection, getDocs, query, where, orderBy, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getColRef, getDocRef, validarSenhaMaster } from './saas-utils.js'; 
+import { getDocs, query, where, orderBy, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// GLOBAIS
 let listaVendasHoje = [];
 let paginaAtual = 1;
-const itensPorPagina = 8; // Ajuste conforme caber na tela
+const itensPorPagina = 8;
 let vendaParaPDF = null;
-let NOME_LOJA="MINHA LOJA", CNPJ_LOJA="", TEL_LOJA="", LOGO_LOJA=null;
+let NOME_LOJA = "MINHA LOJA", CNPJ_LOJA = "", TEL_LOJA = "", LOGO_LOJA = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const nomeSpan = document.getElementById('nome-utilizador');
-    const userName = localStorage.getItem('userName');
-    if (userName) nomeSpan.innerText = `Olá, ${userName}`;
+    const userName = localStorage.getItem('VESTIO_USER_NAME');
+    if (userName && nomeSpan) nomeSpan.innerText = `Olá, ${userName}`;
     
-    await carregarConfigLoja(); // Carrega logo para o PDF
+    await carregarConfigLoja();
     carregarMetricasDoDashboard();
+    
+    const btnVerDetalhes = document.querySelector('button[onclick*="relatorios.html"]');
+    if(btnVerDetalhes) {
+        btnVerDetalhes.onclick = (e) => {
+            e.preventDefault();
+            const hoje = new Date().toISOString().split('T')[0];
+            localStorage.setItem('FILTRO_DATA_INICIO', hoje);
+            localStorage.setItem('FILTRO_DATA_FIM', hoje);
+            window.location.href = 'relatorios.html';
+        };
+    }
 });
 
-const btnLogout = document.getElementById('btn-logout');
-btnLogout.addEventListener('click', async () => {
-    try { await signOut(auth); localStorage.clear(); window.location.href = "../index.html"; } 
-    catch (error) { console.error("Erro logout: ", error); }
+document.getElementById('btn-logout').addEventListener('click', async () => {
+    await signOut(auth); localStorage.clear(); window.location.href = "../index.html";
 });
+
+function formatarDataHora(dataFirebase) {
+    if (!dataFirebase) return '-';
+    try {
+        if (typeof dataFirebase.toDate === 'function') return dataFirebase.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+        return new Date(dataFirebase).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
+    } catch (e) { return '-'; }
+}
+
+function formatarDataDia(dataFirebase) {
+    if (!dataFirebase) return '-';
+    try {
+        if (typeof dataFirebase.toDate === 'function') return dataFirebase.toDate().toLocaleDateString('pt-BR');
+        return new Date(dataFirebase).toLocaleDateString('pt-BR');
+    } catch (e) { return '-'; }
+}
 
 async function carregarConfigLoja() {
     try {
-        const snap = await getDoc(doc(db, "configuracoes", "dados_loja"));
+        const snap = await getDoc(getDocRef("configuracoes", "dados_loja"));
         if (snap.exists()) {
             const d = snap.data();
-            NOME_LOJA=d.nome; CNPJ_LOJA=d.cnpj; TEL_LOJA=d.telefone; LOGO_LOJA=d.logo;
+            NOME_LOJA = d.nome; CNPJ_LOJA = d.cnpj; TEL_LOJA = d.telefone; LOGO_LOJA = d.logo;
         }
-    } catch(e){}
+    } catch(e){ console.log("Config padrão."); }
 }
 
 async function carregarMetricasDoDashboard() {
-    const cardVendasHoje = document.getElementById('card-vendas-hoje');
-    const cardCrediario = document.getElementById('card-crediario-pendente');
-    const cardValorEstoque = document.getElementById('card-valor-estoque');
-    const listaAlertas = document.getElementById('lista-alerta-estoque');
-
     try {
-        const inicioDoDia = new Date();
-        inicioDoDia.setHours(0, 0, 0, 0);
-
-        // 1. VENDAS HOJE (Busca + Paginação)
-        const qVendas = query(collection(db, "vendas"), where("dataVenda", ">=", inicioDoDia), orderBy("dataVenda", "desc"));
-        const snapshotVendas = await getDocs(qVendas);
+        const inicioDoDia = new Date(); inicioDoDia.setHours(0,0,0,0);
         
-        let totalVendasHoje = 0;
-        listaVendasHoje = [];
-
-        snapshotVendas.forEach(doc => {
-            const venda = doc.data();
-            venda.id = doc.id; // Importante para o botão Ver
-            totalVendasHoje += venda.total;
-            listaVendasHoje.push(venda);
-        });
+        // VENDAS
+        const qVendas = query(getColRef("vendas"), where("dataVenda", ">=", inicioDoDia));
+        const snapVendas = await getDocs(qVendas);
+        let total = 0;
+        let lista = [];
+        snapVendas.forEach(d => { total += d.data().total; lista.push({id:d.id, ...d.data()}); });
         
-        cardVendasHoje.innerText = totalVendasHoje.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        renderizarTabelaVendas(); // Chama a paginação
+        document.getElementById('card-vendas-hoje').innerText = total.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+        // Chame sua função de renderizar tabela aqui (lista)
 
-        // 2. CREDIÁRIO
-        const qParcelas = query(collection(db, "parcelas"), where("status", "==", "Pendente"));
-        const snapshotParcelas = await getDocs(qParcelas);
-        let totalCrediario = 0;
-        snapshotParcelas.forEach(doc => { totalCrediario += doc.data().valor; });
-        cardCrediario.innerText = totalCrediario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-        // 3. ESTOQUE (VALOR TOTAL)
-        const snapshotProdutos = await getDocs(collection(db, "produtos"));
-        let valorTotalEstoque = 0;
-        let itensEmAlerta = [];
-
-        snapshotProdutos.forEach(doc => {
-            const produto = doc.data();
-            const preco = produto.precoVenda || 0;
-            const qtdTotal = produto.estoqueTotal || 0;
+        // ESTOQUE (CORREÇÃO DO TRAVAMENTO)
+        const snapProd = await getDocs(getColRef("produtos"));
+        let valEstoque = 0;
+        let alertas = [];
+        
+        snapProd.forEach(d => {
+            const p = d.data();
+            valEstoque += (p.precoVenda || 0) * (p.estoqueTotal || 0);
             
-            // Soma valor (Preço x Quantidade)
-            valorTotalEstoque += (preco * qtdTotal);
-
-            if (produto.grade && produto.grade.length > 0) {
-                produto.grade.forEach(item => {
-                    if (item.qtd <= 3) {
-                        itensEmAlerta.push({
-                            nome: produto.nome, variacao: `${item.tamanho} / ${item.cor}`, qtd: item.qtd
-                        });
-                    }
+            // VERIFICAÇÃO DE SEGURANÇA: Se grade existe e é array
+            if (p.grade && Array.isArray(p.grade)) {
+                p.grade.forEach(g => {
+                    if (g.qtd <= 3) alertas.push({ nome: p.nome, var: `${g.tamanho}/${g.cor}`, qtd: g.qtd });
                 });
             }
         });
-
-        // Exibe Valor Monetário no Card
-        cardValorEstoque.innerText = valorTotalEstoque.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-        // Alertas
+        
+        document.getElementById('card-valor-estoque').innerText = valEstoque.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+        
+        // Renderizar alertas
+        const listaAlertas = document.getElementById('lista-alerta-estoque');
         listaAlertas.innerHTML = '';
-        if (itensEmAlerta.length === 0) {
-            listaAlertas.innerHTML = '<tr><td colspan="2" style="padding: 15px; text-align: center; color: #27ae60;">✅ Estoque saudável!</td></tr>';
-        } else {
-            itensEmAlerta.sort((a, b) => a.qtd - b.qtd);
-            itensEmAlerta.forEach(item => {
-                const corTexto = item.qtd === 0 ? 'red' : '#e67e22';
-                const textoQtd = item.qtd === 0 ? 'ESGOTADO' : `${item.qtd}`;
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>${item.nome}</strong><br><small style="color: #7f8c8d;">${item.variacao}</small></td>
-                    <td style="padding: 8px; border-bottom: 1px solid #eee; color: ${corTexto}; font-weight: bold; text-align: center;">${textoQtd}</td>
-                `;
-                listaAlertas.appendChild(tr);
-            });
-        }
+        if(alertas.length === 0) listaAlertas.innerHTML = '<tr><td>Estoque OK</td></tr>';
+        else alertas.forEach(a => listaAlertas.innerHTML += `<tr><td>${a.nome} (${a.var})</td><td style="color:red">${a.qtd}</td></tr>`);
 
-    } catch (error) { console.error("Erro métricas:", error); }
+    } catch (e) { console.error("Erro dashboard:", e); }
 }
 
-// ==========================================
-// LÓGICA DE PAGINAÇÃO DA TABELA
-// ==========================================
 function renderizarTabelaVendas() {
     const tabela = document.getElementById('tabela-vendas-hoje');
+    if(!tabela) return;
     tabela.innerHTML = '';
 
     const inicio = (paginaAtual - 1) * itensPorPagina;
@@ -128,7 +111,8 @@ function renderizarTabelaVendas() {
     const vendasPagina = listaVendasHoje.slice(inicio, fim);
     const totalPaginas = Math.ceil(listaVendasHoje.length / itensPorPagina) || 1;
 
-    document.getElementById('info-paginacao').innerText = `Página ${paginaAtual} de ${totalPaginas}`;
+    const infoPag = document.getElementById('info-paginacao');
+    if(infoPag) infoPag.innerText = `Página ${paginaAtual} de ${totalPaginas}`;
 
     if (vendasPagina.length === 0) {
         tabela.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: #95a5a6;">Nenhuma venda hoje.</td></tr>';
@@ -136,90 +120,82 @@ function renderizarTabelaVendas() {
     }
 
     vendasPagina.forEach(venda => {
-        const hora = venda.dataVenda ? venda.dataVenda.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) : '-';
-        
-        let statusTexto = venda.statusPagamento || 'Pago';
-        let statusClass = 'bg-pago';
-        if(statusTexto === 'Pendente' || statusTexto === 'Parcelado') statusClass = 'bg-pendente';
-        if(statusTexto === 'Quitado') statusClass = 'bg-quitado';
-
+        const hora = formatarDataHora(venda.dataVenda);
         const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #eee';
         tr.innerHTML = `
             <td style="padding: 10px;">${hora}</td>
             <td style="padding: 10px;">${venda.clienteNome}</td>
             <td style="padding: 10px;">${venda.vendedor || '-'}</td>
-            <td style="padding: 10px; font-weight: bold; color: #27ae60;">R$ ${venda.total.toFixed(2).replace('.',',')}</td>
+            <td style="padding: 10px; font-weight: bold; color: #27ae60;">R$ ${venda.total.toFixed(2)}</td>
             <td style="padding: 10px;">${venda.formaPagamento}</td>
-            <td style="padding: 10px;"><span class="badge ${statusClass}">${statusTexto}</span></td>
-            <td style="padding: 10px;">
-                <button onclick="verDetalhesVenda('${venda.id}')" class="btn-acao">Ver Itens</button>
+            <td style="padding: 10px;"><span class="badge ${venda.statusPagamento === 'Pago' ? 'bg-pago' : 'bg-pendente'}">${venda.statusPagamento || 'Pago'}</span></td>
+            <td style="padding: 10px; display:flex; gap:5px;">
+                <button class="btn-acao" onclick="window.verDetalhesVenda('${venda.id}')">Ver</button>
+                <button class="btn-vermelho" style="width:auto; padding:5px 10px;" onclick="window.excluirVenda('${venda.id}')">🗑️</button>
             </td>
         `;
         tabela.appendChild(tr);
     });
 
-    document.getElementById('btn-ant').disabled = paginaAtual === 1;
-    document.getElementById('btn-prox').disabled = paginaAtual === totalPaginas;
-    document.getElementById('btn-ant').style.opacity = paginaAtual === 1 ? "0.5" : "1";
-    document.getElementById('btn-prox').style.opacity = paginaAtual === totalPaginas ? "0.5" : "1";
+    const btnAnt = document.getElementById('btn-ant');
+    const btnProx = document.getElementById('btn-prox');
+    if(btnAnt) {
+        btnAnt.disabled = paginaAtual === 1;
+        btnAnt.onclick = () => { if(paginaAtual > 1) { paginaAtual--; renderizarTabelaVendas(); }};
+    }
+    if(btnProx) {
+        btnProx.disabled = paginaAtual === totalPaginas;
+        btnProx.onclick = () => { if(paginaAtual < totalPaginas) { paginaAtual++; renderizarTabelaVendas(); }};
+    }
 }
 
-document.getElementById('btn-ant').addEventListener('click', () => { if(paginaAtual > 1) { paginaAtual--; renderizarTabelaVendas(); } });
-document.getElementById('btn-prox').addEventListener('click', () => { 
-    const total = Math.ceil(listaVendasHoje.length/itensPorPagina);
-    if(paginaAtual < total) { paginaAtual++; renderizarTabelaVendas(); } 
-});
-
-// ==========================================
-// FUNÇÕES DO MODAL (DETALHES E PDF)
-// ==========================================
-window.verDetalhesVenda = async function(id) {
+window.verDetalhesVenda = function(id) {
     const venda = listaVendasHoje.find(v => v.id === id);
     if(!venda) return;
     vendaParaPDF = venda;
-
+    
     document.getElementById('detalhe-vendedor').innerText = venda.vendedor || '-';
     document.getElementById('detalhe-cliente').innerText = venda.clienteNome || '-';
-    
-    const lista = document.getElementById('lista-itens-venda'); lista.innerHTML = '';
-    if(venda.itens) {
-        venda.itens.forEach(i => {
-            lista.innerHTML += `<tr><td>${i.nome} (${i.tamanho})</td><td style="text-align:right;">R$ ${i.precoUnitario.toFixed(2)}</td></tr>`;
-        });
-    }
-
-    if (venda.descontoPorcentagem > 0) {
-        document.getElementById('detalhe-subtotal').innerText = (venda.totalBruto||venda.total).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-        document.getElementById('detalhe-desconto-linha').innerText = `Desc: -${venda.descontoPorcentagem}% (R$ ${(venda.valorDesconto||0).toFixed(2)})`;
-    } else {
-        document.getElementById('detalhe-subtotal').innerText = venda.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-        document.getElementById('detalhe-desconto-linha').innerText = "";
-    }
+    const lista = document.getElementById('lista-itens-venda'); 
+    lista.innerHTML = '';
+    venda.itens.forEach(i => { lista.innerHTML += `<tr><td>${i.nome}</td><td style="text-align:right;">R$ ${i.precoUnitario.toFixed(2)}</td></tr>`; });
     document.getElementById('detalhe-total').innerText = venda.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    
     document.getElementById('modal-detalhes').style.display = 'flex';
 };
 
-document.getElementById('btn-segunda-via').addEventListener('click', () => {
-    if(!vendaParaPDF) return;
-    const v = vendaParaPDF;
-    
-    document.getElementById('cupom-nome-loja').innerText = NOME_LOJA;
-    document.getElementById('cupom-info-loja').innerText = `CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}`;
-    if(LOGO_LOJA) { const i = document.getElementById('cupom-logo'); i.src = LOGO_LOJA; i.style.display = 'block'; }
-    
-    document.getElementById('cupom-data').innerText = v.dataVenda ? v.dataVenda.toDate().toLocaleDateString() : '-';
-    document.getElementById('cupom-cliente').innerText = v.clienteNome;
-    document.getElementById('cupom-vendedor').innerText = v.vendedor;
-    
-    const tb = document.getElementById('cupom-itens'); tb.innerHTML = '';
-    v.itens.forEach(i => tb.innerHTML += `<tr><td>${i.nome} (${i.tamanho})</td><td style="text-align:right;">${i.precoUnitario.toFixed(2)}</td></tr>`);
-    
-    document.getElementById('cupom-total').innerText = v.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    document.getElementById('cupom-desc-info').innerText = (v.descontoPorcentagem > 0) ? `Desc: ${v.descontoPorcentagem}%` : '';
+window.excluirVenda = async function(id) {
+    const { value: pass } = await Swal.fire({
+        title: 'Excluir Venda?',
+        text: 'Requer senha de Gerente ou Super Admin',
+        input: 'password',
+        background: '#1e293b', color: '#fff',
+        showCancelButton: true
+    });
 
-    const el = document.getElementById('cupom-fiscal');
-    const opt = { margin: 0, filename: `2Via_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [80, 200] } };
-    html2pdf().set(opt).from(el).save();
-});
+    if(await validarSenhaMaster(pass)) {
+        await deleteDoc(getDocRef("vendas", id));
+        Swal.fire('Deletado', 'Venda removida.', 'success');
+        carregarMetricasDoDashboard();
+    } else if(pass) {
+        Swal.fire('Erro', 'Senha incorreta', 'error');
+    }
+};
+
+const btnPDF = document.getElementById('btn-segunda-via');
+if(btnPDF) {
+    btnPDF.addEventListener('click', () => {
+        if(!vendaParaPDF) return;
+        const v = vendaParaPDF;
+        document.getElementById('cupom-nome-loja').innerText = NOME_LOJA;
+        document.getElementById('cupom-info-loja').innerText = `CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}`;
+        if(LOGO_LOJA) { const i = document.getElementById('cupom-logo'); i.src = LOGO_LOJA; i.style.display = 'block'; }
+        document.getElementById('cupom-data').innerText = formatarDataDia(v.dataVenda);
+        document.getElementById('cupom-cliente').innerText = v.clienteNome;
+        const tb = document.getElementById('cupom-itens'); tb.innerHTML = '';
+        v.itens.forEach(i => tb.innerHTML += `<tr><td>${i.nome}</td><td style="text-align:right;">${i.precoUnitario.toFixed(2)}</td></tr>`);
+        document.getElementById('cupom-total').innerText = v.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+        const el = document.getElementById('cupom-fiscal');
+        const opt = { margin: 0, filename: `2Via_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [80, 200] } };
+        html2pdf().set(opt).from(el).save();
+    });
+}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instalação SaaS - Sistema Vestio</title>
+    <style>
+        body { font-family: sans-serif; background: #2c3e50; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column; }
+        .box { background: white; color: #333; padding: 30px; border-radius: 8px; width: 400px; text-align: center; }
+        input { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; margin-top: 5px; color: white; border: none; cursor: pointer; font-weight: bold; font-size: 14px; border-radius: 4px;}
+        .btn-acao { background: #2980b9; width: 100%; }
+        #log { margin-top: 20px; font-size: 12px; white-space: pre-wrap; text-align: left; background: #000; padding: 10px; border-radius: 5px; color: #0f0; display: none; height: 150px; overflow-y: auto;}
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>🚀 Reparar Instalação SaaS</h2>
+        <p>Digite o e-mail e senha que você quer usar como Admin. O sistema vai corrigir o cadastro automaticamente.</p>
+        
+        <input type="email" id="email" placeholder="E-mail do Admin">
+        <input type="password" id="senha" placeholder="Senha">
+        
+        <button class="btn-acao" onclick="iniciarReparo()">CONFIGURAR AGORA (FORÇAR)</button>
+        
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyA84eShsab8KAgnS4f9eEr9w0CZW4h6nr4",
+            authDomain: "sistema-vestio.firebaseapp.com",
+            projectId: "sistema-vestio",
+            storageBucket: "sistema-vestio.firebasestorage.app",
+            messagingSenderId: "905688551564",
+            appId: "1:905688551564:web:f0166253952199b3d7eba9",
+            measurementId: "G-SSQ74HY1Q5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.iniciarReparo = async () => {
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const logDiv = document.getElementById('log');
+            
+            function log(msg) {
+                logDiv.style.display = 'block';
+                logDiv.innerText += msg + "\n";
+                console.log(msg);
+            }
+
+            if(!email || !senha) return alert("Preencha e-mail e senha.");
+
+            try {
+                let userCred;
+                const ID_EMPRESA = "matriz_vestio"; 
+
+                log("1. Verificando usuário...");
+                
+                try {
+                    // Tenta CRIAR primeiro
+                    userCred = await createUserWithEmailAndPassword(auth, email, senha);
+                    log("✅ Usuário novo criado!");
+                } catch (createError) {
+                    if (createError.code === 'auth/email-already-in-use') {
+                        log("⚠️ Usuário já existe. Tentando logar...");
+                        // Se já existe, tenta LOGAR
+                        userCred = await signInWithEmailAndPassword(auth, email, senha);
+                        log("✅ Login realizado com sucesso!");
+                    } else {
+                        throw createError; // Outro erro (senha fraca, etc)
+                    }
+                }
+                
+                const uid = userCred.user.uid;
+                
+                log("2. Forçando criação do Banco de Dados...");
+                
+                // 1. Cria/Sobrescreve a Empresa
+                await setDoc(doc(db, "empresas", ID_EMPRESA), {
+                    nome: "Minha Loja Principal",
+                    cnpj: "00.000.000/0001-00",
+                    data_validade_licenca: "2030-12-31",
+                    ativo: true,
+                    criadoEm: new Date()
+                }, { merge: true }); // merge evita apagar dados se já existirem
+                log("✅ Dados da Empresa OK.");
+
+                // 2. Vincula o Usuário
+                await setDoc(doc(db, "usuarios", uid), {
+                    nome: "Administrador",
+                    email: email,
+                    empresaId: ID_EMPRESA,
+                    role: "admin"
+                }, { merge: true });
+                log("✅ Vínculo de Usuário OK!");
+
+                log("--------------------------------");
+                log("🎉 PROBLEMA RESOLVIDO!");
+                
+                setTimeout(() => {
+                    alert("Conta configurada! Você será redirecionado para o login.");
+                    window.location.href = "index.html";
+                }, 1500);
+
+            } catch (error) {
+                log("❌ ERRO FATAL: " + error.code);
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+                    alert("A SENHA ESTÁ INCORRETA.\nEsse e-mail já existe, mas a senha não bate. Tente outra senha ou outro e-mail.");
+                } else {
+                    alert("Erro: " + error.message);
+                }
+            }
+        };
+    </script>
+</body>
+</html>

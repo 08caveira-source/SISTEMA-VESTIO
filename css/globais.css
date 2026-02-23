@@ -1,154 +1,100 @@
 /* =========================================
-   ESTILOS GERAIS (DESKTOP FIRST)
+   VESTIO SAAS - IOS DARK GLASS (V6 FINAL)
    ========================================= */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    color-scheme: dark; 
+    --bg-deep: #020617;
+    --bg-gradient: radial-gradient(circle at top right, #1e293b 0%, #020617 100%);
+    --glass-panel: rgba(15, 23, 42, 0.98); 
+    --glass-card: rgba(30, 41, 59, 0.90);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --ios-cyan: #64D2FF; --ios-blue: #0A84FF; --ios-green: #30D158; --ios-red: #FF453A; --ios-orange: #FF9F0A;
+    --text-primary: #FFFFFF; --text-secondary: #94a3b8; 
+    --sidebar-width: 260px; --header-height: 70px; --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: 0;
-    background-color: #f4f7f6;
-    color: #333;
+    font-family: 'Inter', sans-serif;
+    background: var(--bg-deep) !important;
+    background-image: var(--bg-gradient) !important;
+    color: var(--text-primary) !important;
+    margin: 0; min-height: 100vh; overflow-x: hidden; font-size: 15px;
 }
 
-/* Layout Principal */
-.menu-lateral {
-    width: 250px;
-    background-color: #2c3e50;
-    color: white;
-    display: flex;
-    flex-direction: column;
-    padding: 20px 0;
-    transition: transform 0.3s ease;
+/* CAIXAS GERAIS */
+div[style*="background: white"], .card-form, .card-lista, .card-config, .modal-content,
+.coluna, .filtros-box, .tabela-container, .card-metrica,
+.lista-produtos-box, .resumo-venda-box {
+    background: var(--glass-card) !important;
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+    padding: 25px !important; margin-bottom: 25px;
+    color: white !important;
 }
 
-.menu-link {
-    color: #bdc3c7;
-    text-decoration: none;
-    padding: 15px 25px;
-    display: flex;
-    align-items: center;
-    transition: 0.3s;
-    font-size: 16px;
+/* CORREÇÃO DO SWEETALERT E MODAIS (TEXTO BRANCO) */
+.swal2-popup, .swal2-modal, .modal-content {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.swal2-title, .swal2-html-container, .swal2-content, .modal-content h3, .modal-content p, .modal-content span {
+    color: #ffffff !important;
+}
+.swal2-input, .swal2-select {
+    color: white !important;
+    border: 1px solid #475569 !important;
 }
 
-.menu-link:hover, .menu-link.ativo {
-    background-color: #34495e;
-    color: white;
-    border-left: 4px solid #3498db;
+/* INPUTS */
+label { font-size: 11px; font-weight: 700; color: var(--ios-cyan) !important; margin-bottom: 6px; display: block; text-transform: uppercase; }
+input, select, textarea {
+    width: 100%; padding: 0 15px !important; height: 48px !important;
+    background: rgba(0, 0, 0, 0.6) !important; 
+    border: 1px solid rgba(255, 255, 255, 0.2) !important; 
+    border-radius: 10px !important;
+    color: white !important; font-size: 14px !important; outline: none; margin: 5px 0 !important;
 }
+option { background-color: #020617; color: white; }
 
-.menu-icone {
-    margin-right: 10px;
-    width: 20px;
-    text-align: center;
+/* BOTÕES */
+button, .btn-acao, .swal2-confirm {
+    border: none !important; border-radius: 8px !important;
+    font-weight: 600 !important; font-size: 12px !important; text-transform: uppercase;
+    cursor: pointer; color: white !important;
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    height: 48px !important; padding: 0 20px !important;
+    background: linear-gradient(135deg, #0A84FF 0%, #0056b3 100%) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
+.swal2-cancel { background: #FF453A !important; }
+.btn-vermelho, #btn-pdf { background: linear-gradient(135deg, #FF453A 0%, #c41e15 100%) !important; }
+.btn-verde, .btn-salvar { background: linear-gradient(135deg, #30D158 0%, #1e8e3e 100%) !important; }
 
-.titulo-menu {
-    color: #7f8c8d;
-    font-size: 12px;
-    text-transform: uppercase;
-    padding: 0 25px;
-    margin-bottom: 5px;
-    margin-top: 10px;
-    font-weight: bold;
-}
+/* LAYOUT */
+.menu-lateral { width: var(--sidebar-width) !important; height: calc(100vh - 30px) !important; position: fixed !important; top: 15px !important; left: 15px !important; background: var(--glass-panel) !important; border: 1px solid var(--glass-border) !important; border-radius: var(--radius) !important; z-index: 2000; display: flex; flex-direction: column; padding-top: 20px; }
+.menu-link { color: var(--text-secondary) !important; text-decoration: none; padding: 0 20px !important; margin: 4px 10px !important; border-radius: 12px; display: flex; align-items: center; font-size: 14px !important; height: 48px !important; }
+.menu-link:hover { background: rgba(255, 255, 255, 0.1); color: white !important; }
+.menu-link.ativo { background: rgba(10, 132, 255, 0.2) !important; color: var(--ios-cyan) !important; border-color: rgba(10, 132, 255, 0.3) !important; }
+header { height: var(--header-height); position: fixed; top: 15px; right: 15px; left: calc(var(--sidebar-width) + 30px); background: var(--glass-panel) !important; border: 1px solid var(--glass-border); border-radius: var(--radius); display: flex; align-items: center; justify-content: space-between; padding: 0 25px; z-index: 1000; color: white !important; }
+main { margin-left: calc(var(--sidebar-width) + 30px); margin-top: calc(var(--header-height) + 30px); padding: 0 15px 30px 0; }
 
-/* Botões Padrão */
-button { font-family: inherit; }
-button:active { transform: scale(0.98); }
+.pdv-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 25px; height: calc(100vh - 130px); }
+.relatorios-grid { display: grid; grid-template-columns: 1fr 1fr 160px 160px; gap: 15px; align-items: end; }
+.total-display { background: rgba(0,0,0,0.5); padding: 20px; border-radius: 12px; text-align: right; margin-top: 20px; border: 1px solid var(--ios-green); }
+.total-valor { font-size: 32px; font-weight: 700; color: var(--ios-green); }
 
-/* Tabelas e Badges */
-.badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; color: white; }
-.bg-pendente { background-color: #e67e22; }
-.bg-pago { background-color: #27ae60; }
-.bg-quitado { background-color: #2c3e50; }
+table { width: 100%; border-collapse: separate; border-spacing: 0 8px; margin-top: 15px; }
+th { background: transparent !important; color: var(--text-secondary) !important; font-size: 11px !important; text-transform: uppercase; padding: 10px 20px !important; text-align: left; }
+td { background: rgba(255, 255, 255, 0.05) !important; padding: 15px 20px !important; color: white !important; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); }
+td:first-child { border-left: 1px solid rgba(255,255,255,0.05); border-radius: 12px 0 0 12px; }
+td:last-child { border-right: 1px solid rgba(255,255,255,0.05); border-radius: 0 12px 12px 0; }
 
-/* =========================================
-   RESPONSIVIDADE (CELULAR E TABLET)
-   ========================================= */
-@media (max-width: 768px) {
-    
-    /* 1. Ajuste do Layout Geral (Empilhar) */
-    div[style*="display: flex"] {
-        flex-direction: column; /* Transforma linhas em colunas */
-    }
-    
-    /* Exceções: Header e Botões pequenos devem ficar lado a lado */
-    header[style*="display: flex"], 
-    .filtros-box,
-    .botoes-acao,
-    .linha-botoes { 
-        flex-direction: row !important; 
-        flex-wrap: wrap;
-    }
-
-    /* 2. Menu Lateral (Escondido por padrão) */
-    .menu-lateral {
-        position: fixed;
-        top: 60px; /* Altura do Header */
-        left: -100%; /* Esconde na esquerda */
-        width: 80%; /* Ocupa quase toda tela */
-        height: calc(100vh - 60px);
-        z-index: 1000;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
-    }
-    .menu-lateral.menu-aberto {
-        transform: translateX(100%); /* Desliza para aparecer */
-        left: -80%; /* Ajuste técnico para o transform */
-    }
-
-    /* 3. Ajuste do Conteúdo Principal */
-    main {
-        padding: 15px !important;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    /* 4. Tabelas com Scroll Horizontal */
-    .tabela-container, 
-    .card-lista,
-    div[style*="overflow-y: auto"] { 
-        overflow-x: auto; 
-        display: block;
-        width: 100%;
-    }
-    table {
-        min-width: 600px; /* Força a tabela a ter largura mínima para não quebrar */
-    }
-
-    /* 5. Dashboard (Cards um abaixo do outro) */
-    .grid-relatorios, 
-    div[style*="display: flex; gap: 20px; flex-wrap: wrap;"] {
-        flex-direction: column !important;
-    }
-    
-    /* 6. PDV (Caixa) */
-    .container-pdv {
-        height: auto !important; /* Remove altura fixa */
-        flex-direction: column !important;
-    }
-    .coluna-esquerda, .coluna-direita {
-        width: 100% !important;
-        flex: none !important;
-    }
-    /* Carrinho com altura fixa no mobile para não ocupar tudo */
-    .carrinho-lista {
-        max-height: 250px;
-        overflow-y: auto;
-    }
-
-    /* 7. Modal (Tela Cheia) */
-    .modal-content {
-        width: 95% !important;
-        max-height: 90vh;
-        overflow-y: auto;
-    }
-
-    /* 8. Fontes e Botões Maiores (Touch) */
-    input, select, button {
-        font-size: 16px !important; /* Evita zoom automático no iPhone */
-        min-height: 44px; /* Tamanho bom para o dedo */
-    }
-    
-    /* 9. Header */
-    h1 { font-size: 1.2rem !important; }
-    #nome-utilizador { display: none; } /* Esconde nome no celular para economizar espaço */
-}
+@media (max-width: 900px) { .relatorios-grid { grid-template-columns: 1fr; } .pdv-grid { grid-template-columns: 1fr; height: auto; } }
+@media (max-width: 768px) { .menu-lateral { transform: translateX(-120%); } header { left: 15px; width: calc(100% - 30px); } main { margin-left: 0; margin-top: 90px; } }

@@ -1,61 +1,90 @@
-/* css/login.css - Estilos exclusivos para a tela inicial */
+/* css/login.css - iOS Dark Portal */
 
-.login-container {
+body {
+    background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    /* Um gradiente moderno de fundo */
-    background: linear-gradient(135deg, var(--cor-primaria), var(--cor-destaque));
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    color: white;
+}
+
+.login-container {
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
 }
 
 .login-box {
-    background-color: white;
-    padding: 40px;
-    border-radius: var(--borda-arredondada);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    background: rgba(15, 23, 42, 0.7) !important;
+    backdrop-filter: blur(20px);
+    padding: 50px 40px;
     width: 100%;
-    max-width: 400px;
+    max-width: 380px;
+    border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .login-box h2 {
+    color: #FFFFFF !important;
+    font-size: 26px;
+    font-weight: 700;
     margin-bottom: 5px;
-    color: var(--cor-primaria);
-    font-size: 24px;
 }
 
 .login-box p {
-    margin-bottom: 25px;
-    color: #7f8c8d;
+    color: #94a3b8 !important;
+    margin-bottom: 30px;
     font-size: 14px;
-}
-
-.input-group {
-    margin-bottom: 18px;
-    text-align: left;
 }
 
 .input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #64D2FF !important;
     font-weight: 600;
-    font-size: 14px;
-    color: var(--cor-secundaria);
+    font-size: 12px;
+    text-transform: uppercase;
 }
 
-#btn-login {
+.input-group input, 
+#form-login input {
     width: 100%;
-    padding: 12px;
-    background-color: var(--cor-destaque);
-    color: white;
-    font-weight: bold;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 12px;
+    font-size: 16px;
+    color: white !important;
+    outline: none;
+}
+
+button[type="submit"], #btn-login {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #0A84FF 0%, #0056b3 100%) !important;
+    color: white !important;
+    font-weight: 700;
+    font-size: 15px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
     margin-top: 10px;
+    text-transform: uppercase;
 }
 
-#btn-login:hover {
-    background-color: #2980b9; /* Um azul um pouco mais escuro no hover */
-}
-
-#btn-login:disabled {
-    background-color: #bdc3c7;
-    cursor: not-allowed;
+.error {
+    background: rgba(255, 69, 58, 0.2);
+    color: #FF453A;
+    border: 1px solid rgba(255, 69, 58, 0.3);
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    margin-top: 20px;
+    display: none;
 }
