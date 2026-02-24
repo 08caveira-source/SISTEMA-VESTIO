@@ -6,12 +6,18 @@
     <title>Clientes - Vestio</title>
     <link rel="stylesheet" href="../css/globais.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .grid-cep { display: grid; grid-template-columns: 1fr 2.5fr; gap: 15px; margin-top: 15px; }
+        .grid-end { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr 80px; gap: 15px; margin-top: 15px; }
+        @media (max-width: 768px) { .grid-cep, .grid-end { grid-template-columns: 1fr; } }
+    </style>
 </head>
 <body>
+
     <nav class="menu-lateral">
         <h3 class="titulo-menu">Principal</h3>
         <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
-        <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+        <a href="#" onclick="window.open('pdv.html', 'CaixaPDV', 'width=' + screen.width + ',height=' + screen.height + ',fullscreen=yes,menubar=no,toolbar=no,location=no'); return false;" class="menu-link" style="background: rgba(48, 209, 88, 0.1); color: #30D158; border: 1px dashed #30D158;"><span class="menu-icone">🛒</span> Abrir Caixa (PDV)</a>
         
         <h3 class="titulo-menu">Gestão</h3>
         <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
@@ -22,64 +28,71 @@
         <a href="online.html" class="menu-link"><span class="menu-icone">🌐</span> Pedidos Online</a>
         
         <h3 class="titulo-menu">Configurações</h3>
-        <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
-        <a href="minha-loja.html" class="menu-link"><span class="menu-icone">⚙️</span> Minha Loja</a>
+        <a href="config.html" class="menu-link"><span class="menu-icone">⚙️</span> Configurações Gerais</a>
     </nav>
 
     <header>
         <h1>Gestão de Clientes</h1>
         <div style="display: flex; align-items: center; gap: 15px;">
             <span id="nome-utilizador">Admin</span>
-            <button id="btn-logout" style="background: linear-gradient(135deg, #FF453A, #c41e15) !important; width: auto; padding: 0 20px;">SAIR</button>
+            <button id="btn-logout" class="btn-vermelho" style="width: auto; padding: 0 20px;">SAIR</button>
         </div>
     </header>
 
     <main>
         <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 25px;">
+            
             <div class="card-form">
-                <h3>Cadastrar Novo Cliente</h3>
+                <h3>Ficha do Cliente</h3>
                 <input type="hidden" id="cliente-id">
                 
                 <div class="input-group">
                     <label>Nome Completo</label>
-                    <input type="text" id="nome-cliente" placeholder="Ex: Maria da Silva">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                    <div class="input-group">
-                        <label>CPF (Opcional)</label>
-                        <input type="text" id="cpf-cliente" placeholder="000.000.000-00">
-                    </div>
-                    <div class="input-group">
-                        <label>WhatsApp</label>
-                        <input type="text" id="tel-cliente" placeholder="(00) 90000-0000">
-                    </div>
-                </div>
-                <div class="input-group" style="margin-top: 15px;">
-                    <label>Endereço Completo</label>
-                    <input type="text" id="end-cliente" placeholder="Rua, Número, Bairro">
-                </div>
-                
-                <div class="grade-box" style="margin-top: 20px; border: 1px solid rgba(255,255,255,0.1); padding: 15px; border-radius: 10px;">
-                    <h4 style="margin-top:0; font-size:12px;">Limite de Crediário (Fiado)</h4>
-                    <input type="number" id="limite-credito" placeholder="R$ 0,00" step="0.01">
-                    <small style="color: #64D2FF; margin-top: 5px; display: block;">* Deixe 0 para bloquear fiado.</small>
+                    <input type="text" id="nome-cliente" placeholder="Ex: João da Silva">
                 </div>
 
-                <button id="btn-salvar-cliente" class="btn-salvar" style="width: 100%; margin-top: 20px;">Salvar Cliente</button>
-                <button id="btn-cancelar" style="width: 100%; margin-top: 10px; background: rgba(255,255,255,0.1) !important; display: none;">Cancelar</button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                    <div class="input-group"><label>CPF / Documento</label><input type="text" id="cpf-cliente"></div>
+                    <div class="input-group"><label>WhatsApp / Celular</label><input type="text" id="tel-cliente"></div>
+                </div>
+
+                <h4 style="margin-top: 25px; margin-bottom: 0; color: #94a3b8; font-size: 13px;">Endereço de Entrega</h4>
+                <div class="grid-cep">
+                    <div class="input-group">
+                        <label>CEP</label>
+                        <input type="text" id="cli-cep" placeholder="Busca automática" onblur="window.buscarCepCliente()" maxlength="9">
+                    </div>
+                    <div class="input-group"><label>Rua</label><input type="text" id="cli-rua"></div>
+                </div>
+                <div class="grid-end">
+                    <div class="input-group"><label>Número</label><input type="text" id="cli-num"></div>
+                    <div class="input-group"><label>Bairro</label><input type="text" id="cli-bairro"></div>
+                    <div class="input-group"><label>Cidade</label><input type="text" id="cli-cidade"></div>
+                    <div class="input-group"><label>UF</label><input type="text" id="cli-uf" maxlength="2"></div>
+                </div>
+
+                <div class="input-group" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+                    <label style="color: #30D158;">Limite de Crediário (R$)</label>
+                    <input type="number" id="limite-credito" placeholder="Ex: 500,00" step="0.01">
+                </div>
+
+                <button id="btn-salvar-cliente" class="btn-salvar" style="width: 100%; margin-top: 20px; height: 50px !important;">Salvar Cliente</button>
+                <button id="btn-cancelar" style="width: 100%; margin-top: 10px; background: rgba(255,255,255,0.1) !important; display: none;">Cancelar Edição</button>
             </div>
 
             <div class="card-lista">
                 <h3>Base de Clientes</h3>
-                <input type="text" id="busca-cliente" placeholder="Buscar por nome ou CPF...">
-                
-                <div class="tabela-container" style="background: transparent !important; box-shadow: none !important; padding: 0 !important; border: none !important;">
+                <div class="input-group">
+                    <input type="text" id="busca-cliente" placeholder="Buscar por nome, CPF...">
+                </div>
+
+                <div class="tabela-container" style="box-shadow: none !important; padding: 0 !important; background: transparent !important; border: none !important;">
                     <table>
                         <thead>
                             <tr>
-                                <th>Nome</th>
-                                <th>WhatsApp</th>
-                                <th>Limite</th>
+                                <th>Cliente</th>
+                                <th>Contato</th>
+                                <th>Limite Disp.</th>
                                 <th>Ações</th>
                             </tr>
                         </thead>
@@ -89,9 +102,10 @@
                     </table>
                 </div>
             </div>
+
         </div>
     </main>
-    
+
     <script type="module" src="../js/clientes.js"></script>
 </body>
 </html>

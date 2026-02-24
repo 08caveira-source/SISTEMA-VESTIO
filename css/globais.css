@@ -1,6 +1,3 @@
-/* =========================================
-   VESTIO SAAS - IOS DARK GLASS (V6 FINAL)
-   ========================================= */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
@@ -25,7 +22,6 @@ body {
     margin: 0; min-height: 100vh; overflow-x: hidden; font-size: 15px;
 }
 
-/* CAIXAS GERAIS */
 div[style*="background: white"], .card-form, .card-lista, .card-config, .modal-content,
 .coluna, .filtros-box, .tabela-container, .card-metrica,
 .lista-produtos-box, .resumo-venda-box {
@@ -38,50 +34,28 @@ div[style*="background: white"], .card-form, .card-lista, .card-config, .modal-c
     color: white !important;
 }
 
-/* CORREÇÃO DO SWEETALERT E MODAIS (TEXTO BRANCO) */
-.swal2-popup, .swal2-modal, .modal-content {
-    background-color: #1e293b !important;
-    color: #ffffff !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.swal2-title, .swal2-html-container, .swal2-content, .modal-content h3, .modal-content p, .modal-content span {
-    color: #ffffff !important;
-}
-.swal2-input, .swal2-select {
-    color: white !important;
-    border: 1px solid #475569 !important;
-}
+.swal2-popup, .swal2-modal, .modal-content { background-color: #1e293b !important; color: #ffffff !important; border: 1px solid rgba(255, 255, 255, 0.1); }
+.swal2-title, .swal2-html-container, .swal2-content, .modal-content h3, .modal-content p, .modal-content span { color: #ffffff !important; }
+.swal2-input, .swal2-select { color: white !important; border: 1px solid #475569 !important; }
 
-/* INPUTS */
 label { font-size: 11px; font-weight: 700; color: var(--ios-cyan) !important; margin-bottom: 6px; display: block; text-transform: uppercase; }
-input, select, textarea {
-    width: 100%; padding: 0 15px !important; height: 48px !important;
-    background: rgba(0, 0, 0, 0.6) !important; 
-    border: 1px solid rgba(255, 255, 255, 0.2) !important; 
-    border-radius: 10px !important;
-    color: white !important; font-size: 14px !important; outline: none; margin: 5px 0 !important;
-}
+input, select, textarea { width: 100%; padding: 0 15px !important; height: 48px !important; background: rgba(0, 0, 0, 0.6) !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 10px !important; color: white !important; font-size: 14px !important; outline: none; margin: 5px 0 !important; }
 option { background-color: #020617; color: white; }
 
-/* BOTÕES */
-button, .btn-acao, .swal2-confirm {
-    border: none !important; border-radius: 8px !important;
-    font-weight: 600 !important; font-size: 12px !important; text-transform: uppercase;
-    cursor: pointer; color: white !important;
-    display: inline-flex !important; align-items: center !important; justify-content: center !important;
-    height: 48px !important; padding: 0 20px !important;
-    background: linear-gradient(135deg, #0A84FF 0%, #0056b3 100%) !important;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
+button, .btn-acao, .swal2-confirm { border: none !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 12px !important; text-transform: uppercase; cursor: pointer; color: white !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; height: 48px !important; padding: 0 20px !important; background: linear-gradient(135deg, #0A84FF 0%, #0056b3 100%) !important; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 .swal2-cancel { background: #FF453A !important; }
 .btn-vermelho, #btn-pdf { background: linear-gradient(135deg, #FF453A 0%, #c41e15 100%) !important; }
 .btn-verde, .btn-salvar { background: linear-gradient(135deg, #30D158 0%, #1e8e3e 100%) !important; }
 
-/* LAYOUT */
-.menu-lateral { width: var(--sidebar-width) !important; height: calc(100vh - 30px) !important; position: fixed !important; top: 15px !important; left: 15px !important; background: var(--glass-panel) !important; border: 1px solid var(--glass-border) !important; border-radius: var(--radius) !important; z-index: 2000; display: flex; flex-direction: column; padding-top: 20px; }
-.menu-link { color: var(--text-secondary) !important; text-decoration: none; padding: 0 20px !important; margin: 4px 10px !important; border-radius: 12px; display: flex; align-items: center; font-size: 14px !important; height: 48px !important; }
+/* DESIGN PROFISSIONAL DO MENU LATERAL ALINHADO */
+.menu-lateral { width: var(--sidebar-width) !important; height: calc(100vh - 30px) !important; position: fixed !important; top: 15px !important; left: 15px !important; background: var(--glass-panel) !important; border: 1px solid var(--glass-border) !important; border-radius: var(--radius) !important; z-index: 2000; display: flex; flex-direction: column; padding: 20px 15px !important; }
+.titulo-menu { font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: 1.5px; margin-top: 25px; margin-bottom: 10px; padding-left: 5px; border-bottom: 1px solid #1e293b; padding-bottom: 8px; }
+.titulo-menu:first-child { margin-top: 0; }
+.menu-link { display: flex; align-items: center; padding: 10px 12px !important; color: #cbd5e1 !important; text-decoration: none; border-radius: 8px; margin-bottom: 4px !important; transition: all 0.2s ease; font-size: 14px !important; height: 40px !important; }
 .menu-link:hover { background: rgba(255, 255, 255, 0.1); color: white !important; }
-.menu-link.ativo { background: rgba(10, 132, 255, 0.2) !important; color: var(--ios-cyan) !important; border-color: rgba(10, 132, 255, 0.3) !important; }
+.menu-link.ativo { background: rgba(10, 132, 255, 0.2) !important; color: var(--ios-cyan) !important; font-weight: bold; }
+.menu-icone { margin-right: 12px; font-size: 16px; }
+
 header { height: var(--header-height); position: fixed; top: 15px; right: 15px; left: calc(var(--sidebar-width) + 30px); background: var(--glass-panel) !important; border: 1px solid var(--glass-border); border-radius: var(--radius); display: flex; align-items: center; justify-content: space-between; padding: 0 25px; z-index: 1000; color: white !important; }
 main { margin-left: calc(var(--sidebar-width) + 30px); margin-top: calc(var(--header-height) + 30px); padding: 0 15px 30px 0; }
 

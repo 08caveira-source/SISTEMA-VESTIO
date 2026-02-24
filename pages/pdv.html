@@ -3,91 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDV - Vestio</title>
+    <title>Caixa (PDV) - Vestio</title>
     <link rel="stylesheet" href="../css/globais.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* Oculta o menu lateral globalmente garantindo que ele nunca apareça aqui */
+        .menu-lateral { display: none !important; }
+        
+        /* Ajusta o header para colar no canto esquerdo e ocupar 100% da tela */
+        header { left: 15px !important; width: calc(100% - 30px) !important; }
+        
+        /* Remove a margem que existia para dar espaço ao menu lateral */
+        main { margin-left: 0 !important; margin-top: 90px !important; }
+        
+        /* Ajusta o layout do grid para aproveitar a tela cheia */
+        .pdv-grid { grid-template-columns: 2fr 1fr; height: calc(100vh - 120px); gap: 20px; }
+    </style>
 </head>
 <body>
-    <nav class="menu-lateral">
-        <h3 class="titulo-menu">Principal</h3>
-        <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
-        <a href="pdv.html" class="menu-link ativo"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
-        
-        <h3 class="titulo-menu">Gestão</h3>
-        <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
-        <a href="clientes.html" class="menu-link"><span class="menu-icone">👥</span> Clientes</a>
-        <a href="relatorios.html" class="menu-link"><span class="menu-icone">📊</span> Relatórios</a>
-        
-        <h3 class="titulo-menu">Integrações</h3>
-        <a href="online.html" class="menu-link"><span class="menu-icone">🌐</span> Pedidos Online</a>
-        
-        <h3 class="titulo-menu">Configurações</h3>
-        <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
-        <a href="minha-loja.html" class="menu-link"><span class="menu-icone">⚙️</span> Minha Loja</a>
-    </nav>
-
     <header>
-        <h1>Caixa (Ponto de Venda)</h1>
+        <h1 style="color: #30D158;">🛒 Frente de Caixa (PDV)</h1>
         <div style="display: flex; align-items: center; gap: 15px;">
-            <span id="nome-utilizador">Vendedor</span>
-            <button id="btn-logout" style="background: linear-gradient(135deg, #FF453A, #c41e15) !important; width: auto; padding: 0 20px;">SAIR</button>
+            <span id="info-juros" style="color: #FF9F0A; font-weight: bold; font-size: 12px; border: 1px solid #FF9F0A; padding: 4px 8px; border-radius: 4px;">Juros: 0%</span>
+            <span id="nome-utilizador" style="font-weight: bold;">Vendedor</span>
+            <button id="btn-fechar-pdv" class="btn-vermelho" style="width: auto; padding: 0 20px;">✖ FECHAR CAIXA</button>
         </div>
     </header>
 
     <main>
         <div class="pdv-grid">
-            <div class="lista-produtos-box">
-                <div class="input-group">
-                    <label>Buscar Produto</label>
-                    <input type="text" id="busca-produto" placeholder="Digite para buscar..." autofocus autocomplete="off">
-                    <div id="sugestoes-produtos" style="display:none; position:absolute; background:#020617; width:95%; max-height:200px; overflow-y:auto; border:1px solid #475569; z-index:100; border-radius:0 0 10px 10px;"></div>
+            <div class="coluna" style="display: flex; flex-direction: column;">
+                <div class="input-group" style="position: relative;">
+                    <label>Adicionar Produto</label>
+                    <input type="text" id="busca-produto" placeholder="Bipe o código de barras ou digite o nome..." autocomplete="off" autofocus>
+                    <div id="sugestoes-produtos" style="position:absolute; top:100%; left:0; right:0; background:#1e293b; border:1px solid #334155; border-radius:0 0 8px 8px; z-index:1000; display:none; max-height:200px; overflow-y:auto;"></div>
                 </div>
-                <div id="lista-carrinho" style="margin-top: 20px; flex: 1; overflow-y: auto;">
-                    <p style="text-align: center; color: #94a3b8; margin-top: 50px;">🛒 Carrinho vazio.</p>
+
+                <div class="tabela-container" style="flex: 1; margin-top: 20px; overflow-y: auto; background: rgba(0,0,0,0.2) !important; border-radius: 8px;">
+                    <div id="lista-carrinho" style="padding: 10px;">
+                        </div>
                 </div>
             </div>
 
-            <div class="resumo-venda-box">
+            <div class="coluna" style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
-                    <h3 style="margin-top:0;">Dados da Venda</h3>
-                    <div class="input-group" style="margin-bottom: 15px;">
-                        <label>Cliente (Opcional)</label>
-                        <input type="text" id="busca-cliente" placeholder="Nome ou CPF" autocomplete="off">
-                        <div id="sugestoes-clientes" style="display:none; position:absolute; background:#020617; width:100%; z-index:100; border:1px solid #475569; max-height: 150px; overflow-y: auto;"></div>
+                    <div class="input-group" style="position: relative; margin-bottom: 20px;">
+                        <label>Vincular Cliente (Opcional)</label>
+                        <input type="text" id="busca-cliente" placeholder="👤 Nome ou CPF do cliente..." autocomplete="off">
+                        <div id="sugestoes-clientes" style="position:absolute; top:100%; left:0; right:0; background:#1e293b; border:1px solid #334155; border-radius:0 0 8px 8px; z-index:1000; display:none; max-height:200px; overflow-y:auto;"></div>
                     </div>
-                    <div class="input-group" style="margin-bottom: 15px;">
+
+                    <div class="input-group" style="margin-bottom: 20px;">
                         <label>Forma de Pagamento</label>
                         <select id="forma-pagamento">
-                            <option value="Dinheiro">💵 Dinheiro</option>
-                            <option value="PIX">💠 PIX</option>
-                            <option value="Cartão Crédito">💳 Cartão Crédito</option>
-                            <option value="Cartão Débito">💳 Cartão Débito</option>
-                            <option value="Crediário">📝 Crediário (Fiado)</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="PIX">PIX</option>
+                            <option value="Cartão de Crédito">Cartão de Crédito</option>
+                            <option value="Cartão de Débito">Cartão de Débito</option>
+                            <option value="Crediário">Crediário (Fiado)</option>
                         </select>
                     </div>
 
-                    <div id="area-parcelas" style="display: none; background: rgba(10, 132, 255, 0.1); padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #0A84FF;">
-                        <label style="color: #64D2FF;">Parcelas (Máx 12)</label>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <input type="number" id="qtd-parcelas" value="1" min="1" max="12" style="margin:0 !important;">
-                            <small id="info-juros" style="color: #94a3b8; white-space: nowrap;">Juros: 0%</small>
-                        </div>
+                    <div id="area-parcelas" class="input-group" style="margin-bottom: 20px; display: none;">
+                        <label>Quantidade de Parcelas</label>
+                        <input type="number" id="qtd-parcelas" value="1" min="1">
                     </div>
 
-                    <div style="display: flex; gap: 10px; align-items: flex-end;">
-                        <div style="flex: 1;"><label>Desconto (R$)</label><input type="number" id="valor-desconto" value="0" min="0" step="0.01"></div>
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label>Desconto Adicional (R$)</label>
+                        <input type="number" id="valor-desconto" placeholder="0.00" step="0.01">
                     </div>
                 </div>
-                <div>
-                    <div class="total-display">
-                        <small style="color: #94a3b8; font-size: 12px; display: block;">TOTAL A PAGAR</small>
-                        <span class="total-valor" id="total-venda">R$ 0,00</span>
-                    </div>
-                    <button id="btn-finalizar" class="btn-salvar" style="width: 100%; margin-top: 15px; height: 60px !important; font-size: 16px !important;">✅ FINALIZAR VENDA</button>
+
+                <div class="resumo-venda-box" style="margin-bottom: 0; background: rgba(0,0,0,0.3) !important;">
+                    <div style="font-size: 14px; color: #94a3b8; text-transform: uppercase;">Total a Pagar</div>
+                    <div id="total-venda" class="total-valor" style="font-size: 48px; margin: 10px 0;">R$ 0,00</div>
+                    <button id="btn-finalizar" class="btn-verde" style="width: 100%; height: 60px !important; font-size: 16px !important; margin-top: 15px;">💳 FINALIZAR VENDA</button>
                 </div>
             </div>
         </div>
     </main>
-    <script type="module" src="../js/pdv.js?v=2"></script>
+
+    <script type="module" src="../js/pdv.js"></script>
 </body>
 </html>

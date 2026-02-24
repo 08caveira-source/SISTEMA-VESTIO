@@ -3,14 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minha Loja - Vestio</title>
+    <title>Configurações - Vestio</title>
     <link rel="stylesheet" href="../css/globais.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .config-main-container { display: flex !important; align-items: stretch !important; background: #1e293b !important; border-radius: 8px !important; border: 1px solid #334155 !important; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important; overflow: hidden !important; margin-top: 20px !important; min-height: 600px; }
+        .tabs-nav { display: flex !important; flex-direction: column !important; width: 240px !important; background: #0f172a !important; border-right: 1px solid #334155 !important; padding-top: 15px !important; flex-shrink: 0 !important; }
+        .tab-btn { background: transparent !important; color: #94a3b8 !important; border: none !important; border-left: 4px solid transparent !important; padding: 16px 20px !important; text-align: left !important; cursor: pointer !important; font-size: 14px !important; transition: 0.2s !important; border-radius: 0 !important; margin: 0 !important; font-family: inherit !important; display: flex !important; align-items: center !important; }
+        .tab-btn:hover { background: rgba(255, 255, 255, 0.05) !important; color: white !important; }
+        .tab-btn.ativo { background: #1e293b !important; color: #64D2FF !important; font-weight: bold !important; border-left: 4px solid #64D2FF !important; }
+        .config-wrapper { flex: 1 !important; padding: 30px 40px !important; background: #1e293b !important; position: relative; }
+        .tab-content { display: none !important; animation: fadeIn 0.3s; }
+        .tab-content.ativo { display: block !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .tabela-usuarios { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .tabela-usuarios th, .tabela-usuarios td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; color: white; }
+        .tabela-usuarios th { color: #94a3b8; font-size: 12px; }
+        
+        .grid-cep { display: grid; grid-template-columns: 1fr 2.5fr; gap: 15px; margin-top: 15px; }
+        .grid-end { display: grid; grid-template-columns: 1fr 1.5fr 1.5fr 80px; gap: 15px; margin-top: 15px; }
+        
+        @media (max-width: 768px) { 
+            .config-main-container { flex-direction: column !important; } 
+            .tabs-nav { width: 100% !important; border-right: none !important; border-bottom: 1px solid #334155 !important; flex-direction: row !important; overflow-x: auto !important; padding-top: 0 !important; } 
+            .tab-btn { border-left: none !important; border-bottom: 4px solid transparent !important; white-space: nowrap !important; } 
+            .tab-btn.ativo { border-left: none !important; border-bottom: 4px solid #64D2FF !important; } 
+            .config-wrapper { padding: 20px !important; } 
+            .grid-cep, .grid-end { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body>
     <nav class="menu-lateral">
         <h3 class="titulo-menu">Principal</h3>
         <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
-        <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+        <a href="#" onclick="window.open('pdv.html', 'CaixaPDV', 'width=' + screen.width + ',height=' + screen.height + ',fullscreen=yes,menubar=no,toolbar=no,location=no'); return false;" class="menu-link" style="background: rgba(48, 209, 88, 0.1); color: #30D158; border: 1px dashed #30D158;"><span class="menu-icone">🛒</span> Abrir Caixa (PDV)</a>
         
         <h3 class="titulo-menu">Gestão</h3>
         <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
@@ -21,88 +48,337 @@
         <a href="online.html" class="menu-link"><span class="menu-icone">🌐</span> Pedidos Online</a>
         
         <h3 class="titulo-menu">Configurações</h3>
-        <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
-        <a href="minha-loja.html" class="menu-link"><span class="menu-icone">⚙️</span> Minha Loja</a>
+        <a href="config.html" class="menu-link ativo"><span class="menu-icone">⚙️</span> Configurações Gerais</a>
     </nav>
 
     <header>
-        <h1>Configurações da Loja</h1>
+        <h1>Painel de Configurações</h1>
         <div style="display: flex; align-items: center; gap: 15px;">
             <span id="nome-utilizador">Admin</span>
-            <button id="btn-logout" style="background: linear-gradient(135deg, #FF453A, #c41e15) !important; width: auto; padding: 0 20px;">SAIR</button>
+            <button id="btn-logout" class="btn-vermelho" style="width: auto; padding: 0 20px;">SAIR</button>
         </div>
     </header>
 
     <main>
-        <div class="card-config" style="max-width: 600px; margin: 0 auto;">
-            <h3>Dados Empresariais (Cupom & Recibos)</h3>
-            
-            <div class="input-group">
-                <label>Nome Fantasia</label>
-                <input type="text" id="loja-nome" placeholder="Ex: Boutique Vestio">
-            </div>
+        <div style="max-width: 900px; margin: 0 auto;">
+            <div class="config-main-container">
+                <div class="tabs-nav">
+                    <button class="tab-btn ativo" onclick="abrirAba('aba-dados', this)">🏢 Dados da Loja</button>
+                    <button class="tab-btn" onclick="abrirAba('aba-logo', this)">🖼️ Logomarca</button>
+                    <button class="tab-btn" onclick="abrirAba('aba-juros', this)">📈 Juros Crediário</button>
+                    <button class="tab-btn" onclick="abrirAba('aba-usuarios', this)">👥 Usuários</button>
+                    <button class="tab-btn" onclick="abrirAba('aba-ecom', this)">🌐 E-commerce</button>
+                </div>
 
-            <div class="input-group" style="margin-top: 15px;">
-                <label>CNPJ / CPF</label>
-                <input type="text" id="loja-cnpj" placeholder="00.000.000/0000-00">
-            </div>
+                <div class="config-wrapper">
+                    
+                    <div id="aba-dados" class="tab-content ativo">
+                        <h3 style="margin-top: 0; color: #64D2FF; border-bottom: 1px solid #334155; padding-bottom: 10px;">Informações Empresariais</h3>
+                        <div class="input-group"><label>Nome Fantasia</label><input type="text" id="loja-nome"></div>
+                        <div class="input-group" style="margin-top:15px"><label>CNPJ / NIF</label><input type="text" id="loja-cnpj"></div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="input-group"><label>Telefone / WhatsApp</label><input type="text" id="loja-tel"></div>
+                        </div>
 
-            <div class="input-group" style="margin-top: 15px;">
-                <label>Telefone / WhatsApp</label>
-                <input type="text" id="loja-tel" placeholder="(00) 99999-9999">
-            </div>
+                        <div class="input-group" style="margin-top:15px; background: rgba(10, 132, 255, 0.1); padding: 15px; border-radius: 8px; border: 1px dashed #0A84FF;">
+                            <label style="color: #64D2FF;">📷 Instagram da Loja (Para imprimir nas Etiquetas)</label>
+                            <input type="text" id="loja-insta" placeholder="Ex: @sua.loja">
+                        </div>
 
-            <div class="input-group" style="margin-top: 15px;">
-                <label>Endereço Completo</label>
-                <input type="text" id="loja-end" placeholder="Rua, Número, Bairro, Cidade">
-            </div>
+                        <h4 style="margin-top: 25px; margin-bottom: 0; color: #94a3b8;">Endereço de Origem (Remetente)</h4>
+                        <div class="grid-cep">
+                            <div class="input-group">
+                                <label>CEP (Digite para buscar)</label>
+                                <input type="text" id="loja-cep" placeholder="00000-000" onblur="window.buscarCep('loja')" maxlength="9">
+                            </div>
+                            <div class="input-group"><label>Rua / Logradouro</label><input type="text" id="loja-rua"></div>
+                        </div>
+                        <div class="grid-end">
+                            <div class="input-group"><label>Número</label><input type="text" id="loja-num"></div>
+                            <div class="input-group"><label>Bairro</label><input type="text" id="loja-bairro"></div>
+                            <div class="input-group"><label>Cidade</label><input type="text" id="loja-cidade"></div>
+                            <div class="input-group"><label>UF</label><input type="text" id="loja-uf" maxlength="2"></div>
+                        </div>
 
-            <button id="btn-salvar-config" class="btn-salvar" style="width: 100%; margin-top: 25px;">
-                💾 Salvar Configurações
-            </button>
+                        <button class="btn-salvar" onclick="salvarConfiguracoesGerais()" style="width: 100%; margin-top: 25px;">💾 Salvar Dados</button>
+                    </div>
+
+                    <div id="aba-logo" class="tab-content">
+                        <h3 style="margin-top: 0; color: #64D2FF; border-bottom: 1px solid #334155; padding-bottom: 10px;">Identidade Visual</h3>
+                        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Utilizada nas etiquetas de roupas, recibos e PDV.</p>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <div style="width: 150px; height: 150px; border-radius: 12px; background: rgba(0,0,0,0.3); margin: 0 auto; display: flex; justify-content: center; align-items: center; overflow: hidden; border: 1px dashed #666;">
+                                <img id="preview-logo" src="" style="max-width: 100%; max-height: 100%; display: none;">
+                                <span id="placeholder-logo" style="color: #666;">Sem Logo</span>
+                            </div>
+                            <label for="input-logo" style="cursor: pointer; color: #64D2FF; margin-top: 15px; display: inline-block; padding: 10px 20px; border: 1px solid #64D2FF; border-radius: 6px;">📸 Escolher Nova Imagem</label>
+                            <input type="file" id="input-logo" accept="image/*" style="display: none;">
+                        </div>
+                        <button class="btn-salvar" onclick="salvarConfiguracoesGerais()" style="width: 100%; margin-top: 30px;">💾 Salvar Logomarca</button>
+                    </div>
+
+                    <div id="aba-juros" class="tab-content">
+                        <h3 style="margin-top: 0; color: #64D2FF; border-bottom: 1px solid #334155; padding-bottom: 10px;">Configuração Financeira</h3>
+                        <div class="input-group"><label style="color: #64D2FF;">Taxa de Juros (%)</label><input type="number" id="juros-crediario" placeholder="Ex: 10" step="0.1" style="font-size: 20px; text-align: center; max-width: 200px;"></div>
+                        <button class="btn-salvar" onclick="salvarConfiguracoesGerais()" style="width: 100%; margin-top: 25px;">💾 Salvar Juros</button>
+                    </div>
+
+                    <div id="aba-usuarios" class="tab-content">
+                        <h3 style="margin-top: 0; color: #64D2FF; border-bottom: 1px solid #334155; padding-bottom: 10px;">Gerenciamento de Equipe</h3>
+                        <form id="form-usuario" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="input-group"><label>Nome Completo</label><input type="text" id="usr-nome" required></div>
+                                <div class="input-group"><label>Cargo</label><select id="usr-cargo" style="width: 100%; padding: 10px; border-radius: 6px; background: rgba(0,0,0,0.3); color: white; border: 1px solid #334155;"><option value="Vendedor">Vendedor</option><option value="Gerente">Gerente (Acesso Total)</option></select></div>
+                                <div class="input-group" style="grid-column: span 2;"><label>Senha Numérica ou Texto</label><input type="text" id="usr-senha" required></div>
+                            </div>
+                            <button type="submit" class="btn-salvar" style="width: 100%; margin-top: 15px;">➕ Adicionar Usuário</button>
+                        </form>
+                        <table class="tabela-usuarios" style="margin-top: 30px;">
+                            <thead><tr><th>Nome</th><th>Cargo</th><th>Senha</th><th>Ações</th></tr></thead>
+                            <tbody id="lista-usuarios"><tr><td colspan="4" style="text-align:center;">Carregando...</td></tr></tbody>
+                        </table>
+                    </div>
+
+                    <div id="aba-ecom" class="tab-content">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 20px;">
+                            <div>
+                                <h3 style="color: #64D2FF; margin-top: 0; margin-bottom: 5px;">Sincronização Online</h3>
+                                <p style="font-size: 13px; color: #94a3b8; margin: 0;">Integre o estoque e receba pedidos externos.</p>
+                            </div>
+                            <button id="btn-instrucoes-ecom" style="background: rgba(10, 132, 255, 0.2); color: #64D2FF; border: 1px solid #0A84FF; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">📖 Manual Detalhado</button>
+                        </div>
+                        <div style="background: rgba(48, 209, 88, 0.1); border: 1px dashed #30D158; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="color: #30D158; font-weight: bold; display: block; margin-bottom: 5px;">Seu Identificador (Webhook ID)</span>
+                                <span style="color: #94a3b8; font-size: 12px;">Use este código no final do link do servidor para receber pedidos.</span>
+                            </div>
+                            <button onclick="copiarIdentificador()" style="background: #30D158; color: black; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;">📋 Copiar ID</button>
+                        </div>
+                        <div class="input-group"><label>Plataforma (Selecione a sua Loja)</label>
+                            <select id="ecom-plataforma" style="width: 100%; padding: 10px; border-radius: 6px; background: rgba(255,255,255,0.05); color: white; border: 1px solid #334155;">
+                                <option value="nenhuma">Nenhuma</option><option value="woocommerce">WooCommerce (WordPress)</option><option value="shopify">Shopify</option><option value="nuvemshop">Nuvemshop</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-top: 15px;"><label>URL da Loja</label><input type="text" id="ecom-url" placeholder="https://sualoja.com.br"></div>
+                        <div class="input-group" style="margin-top: 15px;"><label>Chave da API (Key) ou ID Nuvemshop</label><input type="text" id="ecom-key"></div>
+                        <div class="input-group" style="margin-top: 15px;"><label>Segredo da API (Secret) ou Token Nuvemshop</label><input type="password" id="ecom-secret"></div>
+                        <button onclick="salvarConfiguracoesGerais()" class="btn-salvar" style="width: 100%; margin-top: 25px;">💾 Salvar Integração</button>
+                    </div>
+
+                </div> 
+            </div> 
         </div>
     </main>
 
     <script type="module">
         import { db, auth } from '../js/firebase-config.js';
-        import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        
-        document.addEventListener('DOMContentLoaded', async () => {
-            const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
-            const userName = localStorage.getItem('VESTIO_USER_NAME');
-            if(document.getElementById('nome-utilizador')) document.getElementById('nome-utilizador').innerText = userName || 'Admin';
+        import { validarSenhaMaster } from '../js/saas-utils.js';
 
-            if(!empresaId) return;
+        let logoBase64 = "";
+        const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
+
+        window.abrirAba = function(abaId, btnSelecionado) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('ativo'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('ativo'));
+            document.getElementById(abaId).classList.add('ativo');
+            btnSelecionado.classList.add('ativo');
+        }
+
+        // FUNÇÃO DE BUSCA DO CEP
+        window.buscarCep = async function(tipo) {
+            const inputCep = document.getElementById(tipo + '-cep');
+            let cep = inputCep.value.replace(/\D/g, ''); 
+            if (cep.length !== 8) return;
+            
+            inputCep.value = cep.substring(0,5) + '-' + cep.substring(5);
+
+            try {
+                const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await res.json();
+                if (!data.erro) {
+                    document.getElementById(tipo + '-rua').value = data.logradouro || '';
+                    document.getElementById(tipo + '-bairro').value = data.bairro || '';
+                    document.getElementById(tipo + '-cidade').value = data.localidade || '';
+                    document.getElementById(tipo + '-uf').value = data.uf || '';
+                    document.getElementById(tipo + '-num').focus(); 
+                } else {
+                    Swal.fire({title: 'Ops', text: 'CEP não encontrado.', icon: 'warning', background: '#1e293b', color: '#fff'});
+                }
+            } catch (e) { console.error('Erro ViaCEP', e); }
+        }
+
+        window.copiarIdentificador = function() {
+            navigator.clipboard.writeText(empresaId);
+            Swal.fire({ title: 'Copiado!', text: 'ID da Empresa copiado com sucesso.', icon: 'success', timer: 2000, showConfirmButton: false });
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if(!empresaId) return window.location.href="../index.html";
+            document.getElementById('nome-utilizador').innerText = localStorage.getItem('VESTIO_USER_NAME') || 'Admin';
 
             const docRef = doc(db, "empresas", empresaId, "configuracoes", "dados_loja");
             const snap = await getDoc(docRef);
-            
             if(snap.exists()){
                 const d = snap.data();
                 document.getElementById('loja-nome').value = d.nome || '';
                 document.getElementById('loja-cnpj').value = d.cnpj || '';
                 document.getElementById('loja-tel').value = d.telefone || '';
-                document.getElementById('loja-end').value = d.endereco || '';
+                document.getElementById('loja-insta').value = d.instagram || '';
+                
+                document.getElementById('loja-cep').value = d.cep || '';
+                document.getElementById('loja-rua').value = d.rua || '';
+                document.getElementById('loja-num').value = d.numero || '';
+                document.getElementById('loja-bairro').value = d.bairro || '';
+                document.getElementById('loja-cidade').value = d.cidade || '';
+                document.getElementById('loja-uf').value = d.uf || '';
+                
+                if (!d.rua && d.endereco) { document.getElementById('loja-rua').value = d.endereco; }
+
+                document.getElementById('juros-crediario').value = d.jurosCrediario || 0;
+                document.getElementById('ecom-plataforma').value = d.ecom_plataforma || 'nenhuma';
+                document.getElementById('ecom-url').value = d.ecom_url || '';
+                document.getElementById('ecom-key').value = d.ecom_key || '';
+                document.getElementById('ecom-secret').value = d.ecom_secret || '';
+
+                if(d.logo) {
+                    logoBase64 = d.logo;
+                    document.getElementById('preview-logo').src = d.logo;
+                    document.getElementById('preview-logo').style.display = 'block';
+                    document.getElementById('placeholder-logo').style.display = 'none';
+                }
             }
 
-            document.getElementById('btn-salvar-config').onclick = async () => {
-                const btn = document.getElementById('btn-salvar-config');
-                btn.innerText = "Salvando...";
+            carregarUsuarios();
+
+            // GERADOR DO MANUAL DETALHADO COMPLETO (RECUPERADO)
+            const btnInstrucoes = document.getElementById('btn-instrucoes-ecom');
+            if(btnInstrucoes) {
+                btnInstrucoes.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const conteudo = `==================================================
+GUIA DE INTEGRAÇÃO VESTIO ERP -> LOJA ONLINE
+==================================================
+SEU IDENTIFICADOR ÚNICO (WEBHOOK ID): ${empresaId}
+(Guarde este código. Ele será o final do link que enviará as vendas para o seu sistema).
+
+► OPÇÃO 1: NUVEMSHOP (PASSO A PASSO DETALHADO)
+--------------------------------------------------
+PASSO 1: Aceda ao site especial para programadores da Nuvemshop: partners.nuvemshop.com.br
+PASSO 2: Crie uma conta gratuita (ou faça login se já tiver).
+PASSO 3: No painel esquerdo, clique em "Aplicativos" e depois no botão "Criar novo aplicativo".
+PASSO 4: Preencha o "Nome do Aplicativo" como "Vestio ERP". No campo "URL de redirecionamento", pode colocar o site da sua loja mesmo.
+PASSO 5: Vá à secção "Permissões". Marque as caixas: "Ler e escrever produtos" e "Ler e escrever pedidos". Clique em Salvar.
+PASSO 6: O sistema vai mostrar o seu aplicativo na lista. Clique no botão azul "Instalar na minha loja". Ele vai redirecioná-lo para a sua loja Nuvemshop para autorizar.
+PASSO 7: Após clicar em "Aceitar", a Nuvemshop vai gerar o seu **Token de Acesso** (uma chave longa). Copie esse Token!
+PASSO 8: Volte ao Sistema Vestio, na aba Integração E-commerce:
+         - Em 'Plataforma', selecione "Nuvemshop".
+         - Em 'Chave da API (Key)', digite o **ID da sua Loja** (é o número que aparece no menu principal da sua Nuvemshop ou no URL administrativo).
+         - Em 'Segredo da API (Secret)', cole o **Token de Acesso** que copiou no Passo 7.
+PASSO 9: Clique em "Salvar Integração". O seu estoque já está ligado!
+PASSO 10: Para receber pedidos no Vestio, vá ao painel da Nuvemshop > Configurações > Códigos Externos e crie um Webhook para o evento "order/paid" apontando para o seu link do Firebase terminado em: ?empresa=${empresaId}
+
+► OPÇÃO 2: WOOCOMMERCE (WORDPRESS)
+--------------------------------------------------
+PASSO 1: No painel WordPress, vá a WooCommerce > Configurações > Avançado > API REST.
+PASSO 2: Clique em "Adicionar Chave" e escolha as permissões "Ler/Escrever".
+PASSO 3: Copie a Chave e o Segredo e cole no Vestio.
+PASSO 4: Vá a WooCommerce > Configurações > Avançado > Webhooks.
+PASSO 5: Crie um Webhook para "Pedido Criado" e coloque o link do Firebase terminado em: ?empresa=${empresaId}
+
+► OPÇÃO 3: SHOPIFY
+--------------------------------------------------
+PASSO 1: No Admin Shopify, vá a Configurações > Apps e canais de vendas > Desenvolver apps.
+PASSO 2: Crie o app "Vestio", libere permissões de produtos e pedidos, e instale.
+PASSO 3: Copie o Token de Acesso da API do Admin e cole no campo Secret do Vestio.
+PASSO 4: Vá a Configurações > Notificações > Webhooks e crie um para "Order creation" com formato JSON e o link do Firebase terminado em: ?empresa=${empresaId}
+==================================================`;
+                    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+                    const link = document.createElement('a'); link.href = window.URL.createObjectURL(blob); link.download = 'Instrucoes_Vestio.txt';
+                    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+                });
+            }
+
+            document.getElementById('input-logo').addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if(file){
+                    const reader = new FileReader();
+                    reader.onloadend = function(){ logoBase64 = reader.result; document.getElementById('preview-logo').src = logoBase64; document.getElementById('preview-logo').style.display = 'block'; document.getElementById('placeholder-logo').style.display = 'none'; }
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            document.getElementById('btn-logout').onclick = async () => { await signOut(auth); window.location.href="../index.html"; };
+        });
+
+        // SALVAR DADOS
+        window.salvarConfiguracoesGerais = async function() {
+            const pass = await Swal.fire({ title: 'Autorização Necessária', input: 'password', background: '#1e293b', color: '#fff' });
+            
+            if (pass.isConfirmed && await validarSenhaMaster(pass.value)) {
+                const rua = document.getElementById('loja-rua').value;
+                const num = document.getElementById('loja-num').value;
+                const bairro = document.getElementById('loja-bairro').value;
+                const cidade = document.getElementById('loja-cidade').value;
+                const uf = document.getElementById('loja-uf').value;
+                const cep = document.getElementById('loja-cep').value;
+
+                let enderecoCompleto = "";
+                if(rua) enderecoCompleto = `${rua}, ${num || 'S/N'} - ${bairro}, ${cidade} - ${uf}. CEP: ${cep}`;
+
+                const docRef = doc(db, "empresas", empresaId, "configuracoes", "dados_loja");
                 await setDoc(docRef, {
                     nome: document.getElementById('loja-nome').value,
                     cnpj: document.getElementById('loja-cnpj').value,
                     telefone: document.getElementById('loja-tel').value,
-                    endereco: document.getElementById('loja-end').value
+                    instagram: document.getElementById('loja-insta').value,
+                    
+                    endereco: enderecoCompleto,
+                    cep: cep, rua: rua, numero: num, bairro: bairro, cidade: cidade, uf: uf,
+                    
+                    jurosCrediario: parseFloat(document.getElementById('juros-crediario').value),
+                    ecom_plataforma: document.getElementById('ecom-plataforma').value,
+                    ecom_url: document.getElementById('ecom-url').value,
+                    ecom_key: document.getElementById('ecom-key').value,
+                    ecom_secret: document.getElementById('ecom-secret').value,
+                    logo: logoBase64
+                }, { merge: true });
+                
+                localStorage.setItem('VESTIO_LOGO', logoBase64);
+                Swal.fire('Sucesso', 'Configurações salvas e aplicadas!', 'success');
+            } else if (pass.isConfirmed) { Swal.fire('Erro', 'Senha incorreta.', 'error'); }
+        }
+
+        async function carregarUsuarios() {
+            const tbody = document.getElementById('lista-usuarios');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Carregando...</td></tr>';
+            try {
+                const snap = await getDocs(query(collection(db, "empresas", empresaId, "usuarios")));
+                tbody.innerHTML = '';
+                snap.forEach(d => {
+                    const u = d.data();
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${u.nome}</td><td><span style="background:${u.cargo==='Gerente'?'#FF453A':'#0A84FF'}; padding:3px 8px; border-radius:4px; font-size:11px;">${u.cargo}</span></td><td style="color:#94a3b8">***${u.senha.substring(u.senha.length-2)}</td><td><button onclick="window.excluirUsuario('${d.id}')" style="background:none; border:none; cursor:pointer; font-size:16px;">🗑️</button></td>`;
+                    tbody.appendChild(tr);
                 });
-                btn.innerText = "Salvo com Sucesso!";
-                setTimeout(() => btn.innerText = "💾 Salvar Configurações", 2000);
-            };
-            
-            document.getElementById('btn-logout').onclick = async () => {
-                await signOut(auth); localStorage.clear(); window.location.href="../index.html";
-            };
-        });
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('form-usuario').onsubmit = async (e) => {
+            e.preventDefault();
+            const pass = await Swal.fire({ title: 'Confirme sua Senha', input: 'password', background: '#1e293b', color: '#fff' });
+            if (pass.isConfirmed && await validarSenhaMaster(pass.value)) {
+                await addDoc(collection(db, "empresas", empresaId, "usuarios"), { nome: document.getElementById('usr-nome').value, cargo: document.getElementById('usr-cargo').value, senha: document.getElementById('usr-senha').value });
+                document.getElementById('form-usuario').reset(); carregarUsuarios(); Swal.fire('Sucesso', 'Usuário adicionado.', 'success');
+            } else if (pass.isConfirmed) { Swal.fire('Erro', 'Senha inválida.', 'error'); }
+        };
+
+        window.excluirUsuario = async function(id) {
+            const pass = await Swal.fire({ title: 'Autorização', input: 'password', background: '#1e293b', color: '#fff' });
+            if (pass.isConfirmed && await validarSenhaMaster(pass.value)) { await deleteDoc(doc(db, "empresas", empresaId, "usuarios", id)); carregarUsuarios(); } else if (pass.isConfirmed) { Swal.fire('Erro', 'Não autorizado.', 'error'); }
+        }
     </script>
 </body>
 </html>

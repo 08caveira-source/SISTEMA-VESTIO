@@ -6,13 +6,17 @@
     <title>Estoque - Vestio</title>
     <link rel="stylesheet" href="../css/globais.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
 </head>
 <body>
 
     <nav class="menu-lateral">
         <h3 class="titulo-menu">Principal</h3>
         <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
-        <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+        
+        <a href="#" onclick="window.open('pdv.html', 'CaixaPDV', 'width=' + screen.width + ',height=' + screen.height + ',fullscreen=yes,menubar=no,toolbar=no,location=no'); return false;" class="menu-link" style="background: rgba(48, 209, 88, 0.1); color: #30D158; border: 1px dashed #30D158;">
+            <span class="menu-icone">🛒</span> Abrir Caixa (PDV)
+        </a>
         
         <h3 class="titulo-menu">Gestão</h3>
         <a href="estoque.html" class="menu-link ativo"><span class="menu-icone">📦</span> Estoque</a>
@@ -23,8 +27,7 @@
         <a href="online.html" class="menu-link"><span class="menu-icone">🌐</span> Pedidos Online</a>
         
         <h3 class="titulo-menu">Configurações</h3>
-        <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
-        <a href="minha-loja.html" class="menu-link"><span class="menu-icone">⚙️</span> Minha Loja</a>
+        <a href="config.html" class="menu-link"><span class="menu-icone">⚙️</span> Configurações Gerais</a>
     </nav>
 
     <header>
@@ -82,15 +85,8 @@
                         <div>
                             <label>Tamanho</label>
                             <select id="tamanho-grade">
-                                <option value="P">P</option>
-                                <option value="M">M</option>
-                                <option value="G">G</option>
-                                <option value="GG">GG</option>
-                                <option value="Único">Único</option>
-                                <option value="36">36</option>
-                                <option value="38">38</option>
-                                <option value="40">40</option>
-                                <option value="42">42</option>
+                                <option value="P">P</option><option value="M">M</option><option value="G">G</option><option value="GG">GG</option>
+                                <option value="Único">Único</option><option value="36">36</option><option value="38">38</option><option value="40">40</option><option value="42">42</option>
                             </select>
                         </div>
                         <div>

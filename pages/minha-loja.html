@@ -66,8 +66,12 @@
             
             <h3 style="color: #64D2FF;">Integração Loja Online (E-commerce)</h3>
             <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">
-                Ligue o seu sistema ao WooCommerce ou Shopify para sincronização de estoque e pedidos.
+                Ligue o seu sistema ao WooCommerce ou Shopify para sincronização de estoque.
             </p>
+
+            <button id="btn-instrucoes-ecom" style="background: rgba(10, 132, 255, 0.2); color: #64D2FF; border: 1px solid #0A84FF; padding: 10px 15px; border-radius: 6px; cursor: pointer; margin-bottom: 20px; font-size: 13px; width: 100%; font-weight: bold;">
+                📖 Ver Instruções de Ligação (Passo a Passo)
+            </button>
 
             <div class="input-group">
                 <label>Plataforma</label>
@@ -84,14 +88,15 @@
             </div>
 
             <div class="input-group" style="margin-top: 15px;">
-                <label>Chave do Consumidor (API Key)</label>
+                <label>Chave do Consumidor / API Key</label>
                 <input type="text" id="ecom-key" placeholder="ck_xxxxxxxxxxxxxxxxxxxx">
             </div>
 
             <div class="input-group" style="margin-top: 15px;">
-                <label>Segredo do Consumidor (API Secret)</label>
+                <label>Segredo do Consumidor / API Secret</label>
                 <input type="password" id="ecom-secret" placeholder="cs_xxxxxxxxxxxxxxxxxxxx">
             </div>
+            
             <button id="btn-salvar-config" class="btn-salvar" style="width: 100%; margin-top: 25px;">💾 SALVAR ALTERAÇÕES</button>
         </div>
     </main>
@@ -108,6 +113,7 @@
             const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
             if(!empresaId) return;
 
+            // 1. CARREGAR DADOS DA EMPRESA
             const docRef = doc(db, "empresas", empresaId, "configuracoes", "dados_loja");
             const snap = await getDoc(docRef);
             if(snap.exists()){
@@ -119,7 +125,6 @@
                 document.getElementById('juros-crediario').value = d.jurosCrediario || 0;
                 document.getElementById('senha-gerente').value = d.senhaGerente || 'admin';
                 
-                // Carregar campos de E-commerce
                 if(document.getElementById('ecom-plataforma')) {
                     document.getElementById('ecom-plataforma').value = d.ecom_plataforma || 'nenhuma';
                     document.getElementById('ecom-url').value = d.ecom_url || '';
@@ -135,6 +140,25 @@
                 }
             }
 
+            // 2. LÓGICA DO BOTÃO DE INSTRUÇÕES
+            const btnInstrucoes = document.getElementById('btn-instrucoes-ecom');
+            if(btnInstrucoes) {
+                btnInstrucoes.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const conteudo = `GUIA DE LIGAÇÃO VESTIO: LOJA FÍSICA -> ONLINE\n--------------------------------------------------\n\n1. CONFIGURAÇÃO NO WOOCOMMERCE (WordPress)\n   - Acesse o painel do seu site WordPress.\n   - Vá em: WooCommerce > Configurações > Avançado > API REST.\n   - Clique em "Adicionar Chave".\n   - Descrição: Sistema Vestio.\n   - Usuário: Selecione um administrador.\n   - Permissões: Ler/Escrever (Crucial para atualizar estoque).\n   - Copie a 'Chave do Consumidor' (Key) e o 'Segredo do Consumidor' (Secret).\n   - No Vestio: Cole a URL do site, a Key e o Secret.\n\n2. CONFIGURAÇÃO NO SHOPIFY\n   - Acesse o painel Admin da Shopify.\n   - Vá em: Configurações > Apps e canais de vendas > Desenvolver apps.\n   - Clique em "Criar um app" e dê o nome "Vestio".\n   - Em "Configuração", selecione "Escopos da API do Admin".\n   - Ative permissões de 'write_products' e 'read_products'.\n   - Instale o app e copie o 'Token de acesso' (que será sua API Key).\n   - Nota: O Shopify exige mapeamento de Location ID.\n\n3. NO SISTEMA VESTIO\n   - Escolha a plataforma correta no menu 'Minha Loja'.\n   - Insira a URL completa.\n   - Salve as alterações usando sua Senha Master.\n   - O estoque será sincronizado automaticamente.\n\n--------------------------------------------------\nSuporte Vestio - Integração SaaS`;
+                    
+                    const blob = new Blob([conteudo], { type: 'text/plain;charset=utf-8' });
+                    const link = document.createElement('a');
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = 'Instrucoes_Ligacao_Vestio.txt';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(link.href);
+                });
+            }
+
+            // 3. LÓGICA DA IMAGEM
             document.getElementById('input-logo').addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if(file){
@@ -149,6 +173,7 @@
                 }
             });
 
+            // 4. SALVAR CONFIGURAÇÕES
             document.getElementById('btn-salvar-config').onclick = async () => {
                 const pass = await Swal.fire({ 
                     title: 'Senha Necessária', 
@@ -167,7 +192,6 @@
                         jurosCrediario: parseFloat(document.getElementById('juros-crediario').value),
                         senhaGerente: document.getElementById('senha-gerente').value,
                         
-                        // Salvando campos de E-commerce
                         ecom_plataforma: document.getElementById('ecom-plataforma').value,
                         ecom_url: document.getElementById('ecom-url').value,
                         ecom_key: document.getElementById('ecom-key').value,
@@ -176,7 +200,7 @@
                         logo: logoBase64
                     }, { merge: true });
                     
-                    localStorage.setItem('VESTIO_LOGO', logoBase64); // Salva para o PDF usar
+                    localStorage.setItem('VESTIO_LOGO', logoBase64);
                     Swal.fire('Sucesso', 'Configurações salvas!', 'success');
                 } else if (pass.isConfirmed) {
                     Swal.fire('Erro', 'Senha incorreta', 'error');

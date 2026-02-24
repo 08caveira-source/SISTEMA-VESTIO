@@ -6,13 +6,26 @@
     <title>Pedidos Online - Vestio</title>
     <link rel="stylesheet" href="../css/globais.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .kanban-board { display: flex; gap: 20px; overflow-x: auto; padding-bottom: 10px; align-items: flex-start; }
+        .kanban-col { flex: 1; min-width: 300px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+        .kanban-card { background: #1e293b; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .btn-acao { border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; width: 100%; margin-top: 5px; }
+        .btn-verde { background: #27ae60; color: white; }
+        .btn-amarelo { background: #f39c12; color: white; }
+        .btn-azul { background: rgba(10, 132, 255, 0.2); color: #64D2FF; border: 1px solid #0A84FF; }
+        .btn-vermelho-outline { background: transparent; color: #FF453A; border: 1px solid #FF453A; }
+    </style>
 </head>
 <body>
 
     <nav class="menu-lateral">
         <h3 class="titulo-menu">Principal</h3>
         <a href="dashboard.html" class="menu-link"><span class="menu-icone">🏠</span> Início</a>
-        <a href="pdv.html" class="menu-link"><span class="menu-icone">🛒</span> PDV (Caixa)</a>
+        
+        <a href="#" onclick="window.open('pdv.html', 'CaixaPDV', 'width=' + screen.width + ',height=' + screen.height + ',fullscreen=yes,menubar=no,toolbar=no,location=no'); return false;" class="menu-link" style="background: rgba(48, 209, 88, 0.1); color: #30D158; border: 1px dashed #30D158;">
+            <span class="menu-icone">🛒</span> Abrir Caixa (PDV)
+        </a>
         
         <h3 class="titulo-menu">Gestão</h3>
         <a href="estoque.html" class="menu-link"><span class="menu-icone">📦</span> Estoque</a>
@@ -23,8 +36,7 @@
         <a href="online.html" class="menu-link ativo"><span class="menu-icone">🌐</span> Pedidos Online</a>
         
         <h3 class="titulo-menu">Configurações</h3>
-        <a href="usuarios.html" class="menu-link"><span class="menu-icone">🔐</span> Usuários</a>
-        <a href="minha-loja.html" class="menu-link"><span class="menu-icone">⚙️</span> Minha Loja</a>
+        <a href="config.html" class="menu-link"><span class="menu-icone">⚙️</span> Configurações Gerais</a>
     </nav>
 
     <header>
@@ -38,34 +50,28 @@
     <main>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
-                <h2 style="margin: 0;">Caixa de Entrada Web</h2>
-                <p style="margin: 0; color: #94a3b8; font-size: 14px;">Gerencie as vendas que chegam do seu site.</p>
+                <h2 style="margin: 0;">Gestão de Pedidos Web</h2>
+                <p style="margin: 0; color: #94a3b8; font-size: 14px;">Acompanhe o fluxo de envio da sua loja online.</p>
             </div>
-            
             <button id="btn-simular-pedido" style="background: linear-gradient(135deg, #9b59b6, #8e44ad) !important; width: auto; font-size: 13px;">
                 🤖 Simular Pedido do Site
             </button>
         </div>
 
-        <div class="card-lista">
-            <h3 style="color: #9b59b6;">Novos Pedidos (Pendentes de Separação)</h3>
-            
-            <div class="tabela-container" style="background: transparent !important; box-shadow: none !important; padding: 0 !important; border: none !important;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data / Hora</th>
-                            <th>Cliente</th>
-                            <th>Itens</th>
-                            <th>Total</th>
-                            <th>Status Origem</th>
-                            <th>Ações (Estoque)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lista-pedidos-online">
-                        <tr><td colspan="6" style="text-align: center;">Buscando pedidos na nuvem...</td></tr>
-                    </tbody>
-                </table>
+        <div class="kanban-board">
+            <div class="kanban-col" style="border-top: 4px solid #FF453A;">
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between;">📦 Novos <span id="count-novos" style="background:#FF453A; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></h3>
+                <div id="coluna-novos"></div>
+            </div>
+
+            <div class="kanban-col" style="border-top: 4px solid #FFD60A;">
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between;">⏳ Em Preparação <span id="count-prep" style="background:#FFD60A; color:black; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></h3>
+                <div id="coluna-preparando"></div>
+            </div>
+
+            <div class="kanban-col" style="border-top: 4px solid #30D158;">
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between;">✅ Enviados <span id="count-env" style="background:#30D158; color:black; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></h3>
+                <div id="coluna-enviados"></div>
             </div>
         </div>
     </main>
