@@ -68,6 +68,7 @@
                     <button class="tab-btn" onclick="abrirAba('aba-juros', this)">📈 Juros Crediário</button>
                     <button class="tab-btn" onclick="abrirAba('aba-usuarios', this)">👥 Usuários</button>
                     <button class="tab-btn" onclick="abrirAba('aba-ecom', this)">🌐 E-commerce</button>
+                    <button class="tab-btn" onclick="abrirAba('aba-cupons', this)">🎟️ Cupons de Desconto</button>
                 </div>
 
                 <div class="config-wrapper">
@@ -166,6 +167,48 @@
                         <button onclick="salvarConfiguracoesGerais()" class="btn-salvar" style="width: 100%; margin-top: 25px;">💾 Salvar Integração</button>
                     </div>
 
+                    <div id="aba-cupons" class="tab-content">
+                        <h3 style="margin-top: 0; color: #64D2FF; border-bottom: 1px solid #334155; padding-bottom: 10px;">Gestão de Cupons Promocionais</h3>
+                        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Crie cupons para uso no PDV físico e sincronize com a loja online.</p>
+                        
+                        <form id="form-cupom" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div class="input-group">
+                                    <label>Código do Cupom</label>
+                                    <input type="text" id="cupom-codigo" placeholder="Ex: VERAO20" style="text-transform: uppercase;" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Desconto (%)</label>
+                                    <input type="number" id="cupom-desconto" placeholder="Ex: 10" min="1" max="100" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Categoria / Produto (Opcional)</label>
+                                    <input type="text" id="cupom-categoria" placeholder="Ex: Camisetas (Deixe vazio para todo o site)">
+                                </div>
+                                <div class="input-group" style="display: flex; gap: 10px;">
+                                    <div style="flex: 1;"><label>Data Início</label><input type="date" id="cupom-inicio" required></div>
+                                    <div style="flex: 1;"><label>Data Término</label><input type="date" id="cupom-fim" required></div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-salvar" style="width: 100%; margin-top: 15px;">➕ Criar e Sincronizar Cupom</button>
+                        </form>
+
+                        <table class="tabela-usuarios" style="margin-top: 30px;">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Desconto</th>
+                                    <th>Alvo</th>
+                                    <th>Validade</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lista-cupons">
+                                <tr><td colspan="5" style="text-align:center;">Carregando cupons...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
                 </div> 
             </div> 
         </div>
@@ -173,7 +216,7 @@
 
     <script type="module">
         import { db, auth } from '../js/firebase-config.js';
-        import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, query } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
         import { signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { validarSenhaMaster } from '../js/saas-utils.js';
 
@@ -252,6 +295,7 @@
             }
 
             carregarUsuarios();
+            carregarCupons(); // Carrega os cupons ao iniciar
 
             // GERADOR DO MANUAL DETALHADO COMPLETO (RECUPERADO)
             const btnInstrucoes = document.getElementById('btn-instrucoes-ecom');
@@ -351,6 +395,9 @@ PASSO 4: Vá a Configurações > Notificações > Webhooks e crie um para "Order
             } else if (pass.isConfirmed) { Swal.fire('Erro', 'Senha incorreta.', 'error'); }
         }
 
+        // ==========================================
+        // GESTÃO DE USUÁRIOS
+        // ==========================================
         async function carregarUsuarios() {
             const tbody = document.getElementById('lista-usuarios');
             tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Carregando...</td></tr>';
@@ -378,6 +425,128 @@ PASSO 4: Vá a Configurações > Notificações > Webhooks e crie um para "Order
         window.excluirUsuario = async function(id) {
             const pass = await Swal.fire({ title: 'Autorização', input: 'password', background: '#1e293b', color: '#fff' });
             if (pass.isConfirmed && await validarSenhaMaster(pass.value)) { await deleteDoc(doc(db, "empresas", empresaId, "usuarios", id)); carregarUsuarios(); } else if (pass.isConfirmed) { Swal.fire('Erro', 'Não autorizado.', 'error'); }
+        }
+
+        // ==========================================
+        // GESTÃO DE CUPONS DE DESCONTO E SINCRONIZAÇÃO
+        // ==========================================
+        async function carregarCupons() {
+            const tbody = document.getElementById('lista-cupons');
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Carregando cupons...</td></tr>';
+            try {
+                const snap = await getDocs(query(collection(db, "empresas", empresaId, "cupons"), orderBy("dataFim", "desc")));
+                tbody.innerHTML = '';
+                if(snap.empty) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#94a3b8;">Nenhum cupom ativo.</td></tr>';
+                    return;
+                }
+                snap.forEach(d => {
+                    const c = d.data();
+                    const tr = document.createElement('tr');
+                    
+                    // Valida se está expirado
+                    const hoje = new Date().toISOString().split('T')[0];
+                    const expirado = c.dataFim < hoje;
+                    const corStatus = expirado ? '#FF453A' : '#30D158';
+
+                    tr.innerHTML = `
+                        <td><strong>${c.codigo}</strong></td>
+                        <td style="color: #64D2FF; font-weight: bold;">${c.desconto}%</td>
+                        <td style="font-size: 13px;">${c.categoria || 'Todas'}</td>
+                        <td style="font-size: 12px; color: ${corStatus};">${c.dataInicio.split('-').reverse().join('/')} até ${c.dataFim.split('-').reverse().join('/')}</td>
+                        <td><button onclick="window.excluirCupom('${d.id}')" style="background:none; border:none; cursor:pointer; font-size:16px;" title="Excluir Cupom">🗑️</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        document.getElementById('form-cupom').onsubmit = async (e) => {
+            e.preventDefault();
+            const pass = await Swal.fire({ title: 'Autorização (Gerente)', input: 'password', background: '#1e293b', color: '#fff' });
+            
+            if (pass.isConfirmed && await validarSenhaMaster(pass.value)) {
+                Swal.fire({ title: 'Salvando e Sincronizando...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff' });
+                
+                const cupomData = {
+                    codigo: document.getElementById('cupom-codigo').value.toUpperCase(),
+                    desconto: parseFloat(document.getElementById('cupom-desconto').value),
+                    categoria: document.getElementById('cupom-categoria').value || '',
+                    dataInicio: document.getElementById('cupom-inicio').value,
+                    dataFim: document.getElementById('cupom-fim').value
+                };
+
+                // 1. Salva no Firebase para o PDV Físico
+                await addDoc(collection(db, "empresas", empresaId, "cupons"), cupomData);
+                
+                // 2. Sincroniza com a Loja Online (via API)
+                await sincronizarCupomOnline(cupomData);
+
+                document.getElementById('form-cupom').reset(); 
+                carregarCupons(); 
+                Swal.fire('Cupom Ativado!', 'Disponível no sistema e na loja online.', 'success');
+            } else if (pass.isConfirmed) { 
+                Swal.fire('Erro', 'Senha inválida.', 'error'); 
+            }
+        };
+
+        window.excluirCupom = async function(id) {
+            const pass = await Swal.fire({ title: 'Excluir Cupom?', text: 'Será removido do sistema local.', input: 'password', background: '#1e293b', color: '#fff' });
+            if (pass.isConfirmed && await validarSenhaMaster(pass.value)) { 
+                await deleteDoc(doc(db, "empresas", empresaId, "cupons", id)); 
+                carregarCupons(); 
+                Swal.fire('Excluído', 'Cupom removido localmente. Lembre-se de remover no site se necessário.', 'success');
+            } else if (pass.isConfirmed) { Swal.fire('Erro', 'Não autorizado.', 'error'); }
+        }
+
+        async function sincronizarCupomOnline(cupom) {
+            try {
+                const docRef = doc(db, "empresas", empresaId, "configuracoes", "dados_loja");
+                const snap = await getDoc(docRef);
+                if(!snap.exists()) return;
+                
+                const config = snap.data();
+                if(!config.ecom_plataforma || config.ecom_plataforma === 'nenhuma') return;
+
+                // INTEGRAÇÃO WOOCOMMERCE
+                if (config.ecom_plataforma === 'woocommerce') {
+                    const authStr = btoa(config.ecom_key + ':' + config.ecom_secret);
+                    const payload = {
+                        code: cupom.codigo,
+                        amount: cupom.desconto.toString(),
+                        discount_type: 'percent',
+                        date_expires: cupom.dataFim + 'T23:59:59',
+                        description: 'Criado pelo Vestio ERP'
+                    };
+                    await fetch(`${config.ecom_url}/wp-json/wc/v3/coupons`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Basic ${authStr}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                } 
+                // INTEGRAÇÃO NUVEMSHOP
+                else if (config.ecom_plataforma === 'nuvemshop') {
+                    const headers = { 
+                        'Authentication': `bearer ${config.ecom_secret}`, 
+                        'Content-Type': 'application/json', 
+                        'User-Agent': 'VestioERP' 
+                    };
+                    const payload = {
+                        code: cupom.codigo,
+                        type: 'percentage',
+                        value: cupom.desconto.toString(),
+                        end_date: cupom.dataFim + 'T23:59:59Z'
+                    };
+                    await fetch(`https://api.nuvemshop.com.br/v1/${config.ecom_key}/coupons`, {
+                        method: 'POST', 
+                        headers: headers, 
+                        body: JSON.stringify(payload)
+                    });
+                }
+                console.log("Cupom sincronizado com a plataforma web com sucesso.");
+            } catch (erro) {
+                console.error("Erro ao sincronizar cupom com o site:", erro);
+            }
         }
     </script>
 </body>

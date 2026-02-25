@@ -15,6 +15,8 @@
         .btn-amarelo { background: #f39c12; color: white; }
         .btn-azul { background: rgba(10, 132, 255, 0.2); color: #64D2FF; border: 1px solid #0A84FF; }
         .btn-vermelho-outline { background: transparent; color: #FF453A; border: 1px solid #FF453A; }
+        .btn-minimizar { background: rgba(255,255,255,0.1); border: none; color: #fff; cursor: pointer; border-radius: 4px; padding: 2px 8px; font-size: 12px; transition: 0.2s; }
+        .btn-minimizar:hover { background: rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
@@ -60,17 +62,26 @@
 
         <div class="kanban-board">
             <div class="kanban-col" style="border-top: 4px solid #FF453A;">
-                <h3 style="margin-top: 0; display: flex; justify-content: space-between;">📦 Novos <span id="count-novos" style="background:#FF453A; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></h3>
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+                    <span>📦 Novos <span id="count-novos" style="background:#FF453A; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></span>
+                    <button class="btn-minimizar" onclick="window.toggleColuna('coluna-novos', this)">Ocultar</button>
+                </h3>
                 <div id="coluna-novos"></div>
             </div>
 
             <div class="kanban-col" style="border-top: 4px solid #FFD60A;">
-                <h3 style="margin-top: 0; display: flex; justify-content: space-between;">⏳ Em Preparação <span id="count-prep" style="background:#FFD60A; color:black; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></h3>
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+                    <span>⏳ Em Preparação <span id="count-prep" style="background:#FFD60A; color:black; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></span>
+                    <button class="btn-minimizar" onclick="window.toggleColuna('coluna-preparando', this)">Ocultar</button>
+                </h3>
                 <div id="coluna-preparando"></div>
             </div>
 
             <div class="kanban-col" style="border-top: 4px solid #30D158;">
-                <h3 style="margin-top: 0; display: flex; justify-content: space-between;">✅ Enviados <span id="count-env" style="background:#30D158; color:black; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></h3>
+                <h3 style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+                    <span>✅ Enviados <span id="count-env" style="background:#30D158; color:black; padding:2px 8px; border-radius:10px; font-size:12px;">0</span></span>
+                    <button class="btn-minimizar" onclick="window.toggleColuna('coluna-enviados', this)">Ocultar</button>
+                </h3>
                 <div id="coluna-enviados"></div>
             </div>
         </div>

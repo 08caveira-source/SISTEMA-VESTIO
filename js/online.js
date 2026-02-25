@@ -48,7 +48,6 @@ function carregarPedidosOnline() {
             
             let botoesHTML = '';
 
-            // Agora passamos apenas o ID do pedido para a função imprimirEtiqueta
             if (p.status_integracao === 'pendente') {
                 contNovos++;
                 botoesHTML = `
@@ -92,7 +91,7 @@ function carregarPedidosOnline() {
     });
 }
 
-// 2. APROVAR PEDIDO (Com proteção de dados de clientes)
+// 2. APROVAR PEDIDO
 window.aprovarPedido = async function(pedidoId) {
     try {
         Swal.fire({ title: 'Verificando Cliente...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff' });
@@ -121,11 +120,11 @@ window.aprovarPedido = async function(pedidoId) {
             if (!snapNome.empty) idClienteVinculado = snapNome.docs[0].id;
         }
 
-        // PERGUNTA SE DESEJA SALVAR O CLIENTE NA BASE
+        // PERGUNTA SE DESEJA SALVAR O CLIENTE NA BASE PADRONIZADA COM CONFIRMAR/REJEITAR
         if (!idClienteVinculado) {
             Swal.close(); 
             
-            const { isConfirmed, isDenied } = await Swal.fire({
+            const { isConfirmed } = await Swal.fire({
                 title: 'Novo Cliente Detectado!',
                 html: `
                     <div style="text-align: left; font-size: 14px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; border: 1px dashed #64D2FF; margin-bottom: 15px;">
@@ -133,18 +132,14 @@ window.aprovarPedido = async function(pedidoId) {
                         <p style="margin: 5px 0;"><strong>CPF:</strong> ${cpfBusca || 'Não informado'}</p>
                         <p style="margin: 5px 0;"><strong>Email:</strong> ${emailBusca || 'Não informado'}</p>
                         <p style="margin: 5px 0;"><strong>Whats:</strong> ${pedido.clienteTelefone || 'Não informado'}</p>
-                        <p style="margin: 5px 0;"><strong>Morada:</strong> ${pedido.enderecoEntrega || 'Não informado'}</p>
                     </div>
-                    <p style="font-size: 14px; color: #94a3b8;">Deseja criar a ficha deste cliente na sua base de dados?</p>
                 `,
                 icon: 'info',
                 showCancelButton: true,
-                showDenyButton: true,
-                confirmButtonText: '✅ Sim, Cadastrar',
-                denyButtonText: '⏭️ Não, Apenas Faturar',
-                cancelButtonText: '❌ Cancelar',
+                confirmButtonText: '✅ Confirmar Cadastro e Faturar',
+                cancelButtonText: '❌ Rejeitar e Cancelar',
                 background: '#1e293b', color: '#fff',
-                confirmButtonColor: '#30D158', denyButtonColor: '#0A84FF', cancelButtonColor: '#FF453A',
+                confirmButtonColor: '#30D158', cancelButtonColor: '#FF453A',
                 width: 500
             });
 
@@ -154,10 +149,9 @@ window.aprovarPedido = async function(pedidoId) {
                     nome: nomeBusca, cpf: cpfBusca, email: emailBusca, telefone: pedido.clienteTelefone || '', endereco: pedido.enderecoEntrega || '', limiteCredito: 0, origem: 'E-commerce', dataCadastro: Timestamp.now()
                 });
                 idClienteVinculado = novoCliente.id;
-            } else if (isDenied) {
-                Swal.fire({ title: 'Faturando Pedido...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff' });
-                idClienteVinculado = null;
-            } else { return; }
+            } else { 
+                return; // Encerra tudo se rejeitado
+            }
         } else {
             Swal.fire({ title: 'Faturando Pedido...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff' });
         }
@@ -176,7 +170,7 @@ window.aprovarPedido = async function(pedidoId) {
         }
 
         await updateDoc(pedidoRef, { status_integracao: 'preparando' });
-        Swal.fire({title: 'Sucesso!', text: 'Pedido faturado e enviado para preparação.', icon: 'success', background:'#1e293b', color:'#fff'});
+        Swal.fire({title: 'Sucesso!', text: 'Pedido faturado.', icon: 'success', background:'#1e293b', color:'#fff'});
     } catch(e) { console.error(e); Swal.fire('Erro', 'Falha ao processar pedido.', 'error'); }
 }
 
@@ -185,7 +179,18 @@ window.marcarEnviado = async function(pedidoId) {
 }
 
 window.rejeitarPedido = async function(pedidoId) {
-    if(confirm("Cancelar este pedido? O estoque físico não será alterado.")) {
+    const { isConfirmed } = await Swal.fire({
+        title: 'Rejeitar Pedido?',
+        text: 'O pedido será cancelado e o estoque físico não será alterado.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: '✅ Confirmar',
+        cancelButtonText: '❌ Rejeitar',
+        background: '#1e293b', color: '#fff',
+        confirmButtonColor: '#FF453A', cancelButtonColor: '#475569'
+    });
+
+    if(isConfirmed) {
         await updateDoc(getDocRef("vendas_online", pedidoId), { status_integracao: 'rejeitado' });
     }
 }
@@ -302,3 +307,15 @@ async function simularPedido(empresaId) {
         Swal.fire({title: 'Pedido Simulado!', text: 'O pedido apareceu na coluna Novos.', icon: 'success', background:'#1e293b', color:'#fff', timer: 1500, showConfirmButton: false});
     } catch(e) { console.error(e); }
 }
+
+// 4. FUNÇÃO PARA MINIMIZAR COLUNAS DO KANBAN
+window.toggleColuna = function(colunaId, btnElement) {
+    const coluna = document.getElementById(colunaId);
+    if (coluna.style.display === 'none') {
+        coluna.style.display = 'block';
+        btnElement.innerText = 'Ocultar';
+    } else {
+        coluna.style.display = 'none';
+        btnElement.innerText = 'Expandir';
+    }
+};

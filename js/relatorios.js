@@ -10,10 +10,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
     if (!empresaId) return window.location.href = "../index.html";
     
-    // Filtro Inicial
+    // Captura o filtro enviado pelo Dashboard (se existir)
+    const filtroInicio = localStorage.getItem('FILTRO_DATA_INICIO');
+    const filtroFim = localStorage.getItem('FILTRO_DATA_FIM');
     const hoje = new Date();
-    document.getElementById('data-inicio').value = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0];
-    document.getElementById('data-fim').value = hoje.toISOString().split('T')[0];
+
+    if (filtroInicio && filtroFim) {
+        document.getElementById('data-inicio').value = filtroInicio;
+        document.getElementById('data-fim').value = filtroFim;
+        
+        // Limpa a memória para que nas próximas vezes ele não fique preso nesta data
+        localStorage.removeItem('FILTRO_DATA_INICIO');
+        localStorage.removeItem('FILTRO_DATA_FIM');
+    } else {
+        // Comportamento padrão: Filtra do dia 1 até hoje
+        document.getElementById('data-inicio').value = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().split('T')[0];
+        document.getElementById('data-fim').value = hoje.toISOString().split('T')[0];
+    }
 
     document.getElementById('btn-filtrar').addEventListener('click', () => carregarRelatorio(empresaId));
     document.getElementById('btn-pdf').addEventListener('click', gerarPDFProfissional);
@@ -95,29 +108,27 @@ function renderizarTabela() {
 }
 
 function gerarPDFProfissional() {
-    const div = document.createElement('div');
-    // Força fundo branco e texto preto para o PDF
-    div.style.cssText = "position:absolute; left:-9999px; top:0; width:210mm; background:white; color:black; padding:20px; font-family:Arial, sans-serif; z-index:9999;";
-    
     const lojaNome = localStorage.getItem('VESTIO_USER_NAME') || 'Minha Loja';
     const periodo = `Período: ${document.getElementById('data-inicio').value} a ${document.getElementById('data-fim').value}`;
     
+    // Geração da String HTML direta (Resolve o problema da folha em branco)
     let html = `
-        <h2 style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px;">${lojaNome}</h2>
-        <h3 style="text-align:center;">Relatório Financeiro</h3>
-        <p style="text-align:center; color:#666;">${periodo}</p>
-        <br>
-        <table style="width:100%; border-collapse:collapse; font-size:11px;">
-            <thead>
-                <tr style="background:#eee;">
-                    <th style="border:1px solid #ccc; padding:8px; text-align:left;">Data</th>
-                    <th style="border:1px solid #ccc; padding:8px; text-align:left;">Vendedor</th>
-                    <th style="border:1px solid #ccc; padding:8px; text-align:left;">Cliente</th>
-                    <th style="border:1px solid #ccc; padding:8px; text-align:right;">Total</th>
-                    <th style="border:1px solid #ccc; padding:8px; text-align:right;">Lucro Est.</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: black; background: white;">
+            <h2 style="text-align:center; border-bottom:2px solid #000; padding-bottom:10px;">${lojaNome}</h2>
+            <h3 style="text-align:center;">Relatório Financeiro</h3>
+            <p style="text-align:center; color:#666;">${periodo}</p>
+            <br>
+            <table style="width:100%; border-collapse:collapse; font-size:11px;">
+                <thead>
+                    <tr style="background:#eee;">
+                        <th style="border:1px solid #ccc; padding:8px; text-align:left;">Data</th>
+                        <th style="border:1px solid #ccc; padding:8px; text-align:left;">Vendedor</th>
+                        <th style="border:1px solid #ccc; padding:8px; text-align:left;">Cliente</th>
+                        <th style="border:1px solid #ccc; padding:8px; text-align:right;">Total</th>
+                        <th style="border:1px solid #ccc; padding:8px; text-align:right;">Lucro Est.</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
 
     listaVendasFiltradas.forEach(v => {
@@ -134,16 +145,14 @@ function gerarPDFProfissional() {
     });
 
     html += `
-            </tbody>
-        </table>
-        <div style="margin-top:20px; text-align:right;">
-            <h3>Faturamento Total: ${document.getElementById('total-faturamento').innerText}</h3>
-            <h3>Lucro Líquido: ${document.getElementById('total-lucro').innerText}</h3>
+                </tbody>
+            </table>
+            <div style="margin-top:20px; text-align:right;">
+                <h3>Faturamento Total: ${document.getElementById('total-faturamento').innerText}</h3>
+                <h3>Lucro Líquido: ${document.getElementById('total-lucro').innerText}</h3>
+            </div>
         </div>
     `;
-
-    div.innerHTML = html;
-    document.body.appendChild(div);
 
     const opt = {
         margin: 10,
@@ -153,7 +162,5 @@ function gerarPDFProfissional() {
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(div).save().then(() => {
-        document.body.removeChild(div);
-    });
+    html2pdf().set(opt).from(html).save();
 }

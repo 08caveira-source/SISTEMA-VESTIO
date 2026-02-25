@@ -70,7 +70,16 @@
                     </div>
 
                     <div class="input-group" style="margin-bottom: 20px;">
-                        <label>Desconto Adicional (R$)</label>
+                        <label>Cupom Promocional</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="codigo-cupom" placeholder="CÓDIGO" style="text-transform: uppercase; width: 60%;">
+                            <button id="btn-aplicar-cupom" class="btn-acao" style="background: rgba(10, 132, 255, 0.2) !important; color: #64D2FF !important; border: 1px solid #0A84FF !important; width: 40%;">Aplicar</button>
+                        </div>
+                        <small id="info-cupom" style="color: #30D158; display: none; margin-top: 8px; font-weight: bold;"></small>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom: 20px;">
+                        <label>Desconto Adicional Extra (R$)</label>
                         <input type="number" id="valor-desconto" placeholder="0.00" step="0.01">
                     </div>
                 </div>

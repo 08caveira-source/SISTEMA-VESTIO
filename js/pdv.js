@@ -1,7 +1,8 @@
 import { db, auth } from './firebase-config.js';
-import { collection, addDoc, getDocs, query, Timestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, where, Timestamp, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 let carrinho = [], clienteSelecionado = null, produtosCache = [], clientesCache = [], jurosConfig = 0, ecomConfig = null;
+let cupomAplicado = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     const empresaId = localStorage.getItem('VESTIO_EMPRESA_ID');
@@ -71,6 +72,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.close(); 
         Swal.fire('Caixa Fechado', 'Você pode fechar esta aba no X do navegador.', 'info'); 
     });
+
+    // ==========================================
+    // VALIDAÇÃO DE CUPOM DE DESCONTO
+    // ==========================================
+    document.getElementById('btn-aplicar-cupom').addEventListener('click', async () => {
+        const codigo = document.getElementById('codigo-cupom').value.toUpperCase().trim();
+        const infoCupom = document.getElementById('info-cupom');
+        
+        if(!codigo) {
+            cupomAplicado = null;
+            infoCupom.style.display = 'none';
+            atualizarTotal();
+            return;
+        }
+
+        try {
+            Swal.fire({ title: 'A verificar...', allowOutsideClick: false, didOpen: () => Swal.showLoading(), background:'#1e293b', color:'#fff' });
+            
+            const q = query(collection(db, "empresas", empresaId, "cupons"), where("codigo", "==", codigo));
+            const snap = await getDocs(q);
+            
+            if(snap.empty) {
+                Swal.fire('Inválido', 'Cupom não encontrado.', 'warning');
+                cupomAplicado = null;
+                infoCupom.style.display = 'none';
+                atualizarTotal();
+                return;
+            }
+
+            const cupom = snap.docs[0].data();
+            const hoje = new Date().toISOString().split('T')[0];
+
+            if(hoje < cupom.dataInicio || hoje > cupom.dataFim) {
+                Swal.fire('Expirado', 'Este cupom está fora da validade.', 'warning');
+                cupomAplicado = null;
+                infoCupom.style.display = 'none';
+                atualizarTotal();
+                return;
+            }
+
+            cupomAplicado = cupom;
+            let msgCategoria = cupom.categoria ? `(Aplicável a: ${cupom.categoria})` : '(Aplicável a tudo)';
+            infoCupom.innerText = `✅ Cupom de ${cupom.desconto}% aplicado! ${msgCategoria}`;
+            infoCupom.style.display = 'block';
+            Swal.close();
+            atualizarTotal();
+
+        } catch (e) {
+            console.error(e);
+            Swal.fire('Erro', 'Não foi possível validar o cupom.', 'error');
+        }
+    });
 });
 
 async function carregarProdutosCache(empresaId) { const snap = await getDocs(query(collection(db, "empresas", empresaId, "produtos"))); produtosCache = []; snap.forEach(doc => produtosCache.push({ id: doc.id, ...doc.data() })); }
@@ -118,7 +171,7 @@ function filtrarClientes(texto) {
     div.style.display = res.length ? 'block' : 'none';
 }
 
-// O Carrinho agora aceita e diferencia as variações do mesmo produto
+// O Carrinho agora aceita e diferencia as variações do mesmo produto e carrega a categoria
 function adicionarAoCarrinho(produto, varIndex = null) {
     let idCarrinho = produto.id;
     let nomeCarrinho = produto.nome;
@@ -137,6 +190,7 @@ function adicionarAoCarrinho(produto, varIndex = null) {
             id: produto.id, 
             codigo: produto.codigo || '', 
             nome: nomeCarrinho, 
+            categoria: produto.categoria || '', 
             precoUnitario: parseFloat(produto.precoVenda), 
             qtd: 1, 
             custo: produto.precoCusto||0 
@@ -152,11 +206,35 @@ function renderizarCarrinho() {
 }
 window.removeItem = (idx) => { carrinho.splice(idx, 1); renderizarCarrinho(); };
 
+// Cálculo que leva em consideração Cupom aplicado e restrições de Categoria
 function atualizarTotal() {
-    let sub = carrinho.reduce((a, b) => a + (b.qtd * b.precoUnitario), 0);
-    let desc = parseFloat(document.getElementById('valor-desconto').value) || 0;
-    let total = Math.max(0, sub - desc);
-    if (document.getElementById('forma-pagamento').value === 'Crediário' && jurosConfig > 0) { total = total * (1 + (jurosConfig / 100)); }
+    let sub = 0;
+    
+    carrinho.forEach(b => {
+        let precoFinalItem = b.precoUnitario;
+        
+        if (cupomAplicado) {
+            const percDesconto = cupomAplicado.desconto / 100;
+            // Verifica se o cupom tem alvo (categoria) e se o produto pertence a esse alvo
+            if (!cupomAplicado.categoria) {
+                precoFinalItem = precoFinalItem - (precoFinalItem * percDesconto);
+            } else if (b.categoria && b.categoria.toLowerCase().includes(cupomAplicado.categoria.toLowerCase())) {
+                precoFinalItem = precoFinalItem - (precoFinalItem * percDesconto);
+            } else if (b.nome && b.nome.toLowerCase().includes(cupomAplicado.categoria.toLowerCase())) {
+                precoFinalItem = precoFinalItem - (precoFinalItem * percDesconto);
+            }
+        }
+        
+        sub += (b.qtd * precoFinalItem);
+    });
+
+    let descManual = parseFloat(document.getElementById('valor-desconto').value) || 0;
+    let total = Math.max(0, sub - descManual);
+    
+    if (document.getElementById('forma-pagamento').value === 'Crediário' && jurosConfig > 0) { 
+        total = total * (1 + (jurosConfig / 100)); 
+    }
+    
     document.getElementById('total-venda').innerText = total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     return total;
 }
@@ -219,7 +297,7 @@ async function finalizarVenda(empresaId) {
 
     const total = atualizarTotal();
     const btn = document.getElementById('btn-finalizar');
-    btn.disabled = true; btn.innerText = "Processando...";
+    btn.disabled = true; btn.innerText = "A Processar...";
 
     try {
         let listaParcelas = [];
@@ -228,7 +306,18 @@ async function finalizarVenda(empresaId) {
             for(let i=1; i<=parcelas; i++){ const d = new Date(); d.setMonth(d.getMonth()+i); listaParcelas.push({ numero: i, valor: valorP, vencimento: Timestamp.fromDate(d), pago: false }); }
         }
 
-        const venda = { dataVenda: Timestamp.now(), clienteId: clienteSelecionado ? clienteSelecionado.id : null, clienteNome: clienteSelecionado ? clienteSelecionado.nome : 'Consumidor', itens: carrinho, total: total, formaPagamento: pgto, statusPagamento: pgto === 'Crediário' ? 'Crediário' : 'Pago', parcelas: listaParcelas, vendedor: localStorage.getItem('VESTIO_USER_NAME') };
+        const venda = { 
+            dataVenda: Timestamp.now(), 
+            clienteId: clienteSelecionado ? clienteSelecionado.id : null, 
+            clienteNome: clienteSelecionado ? clienteSelecionado.nome : 'Consumidor', 
+            itens: carrinho, 
+            total: total, 
+            formaPagamento: pgto, 
+            statusPagamento: pgto === 'Crediário' ? 'Crediário' : 'Pago', 
+            parcelas: listaParcelas, 
+            vendedor: localStorage.getItem('VESTIO_USER_NAME'),
+            cupom: cupomAplicado ? cupomAplicado.codigo : null
+        };
         const ref = await addDoc(collection(db, "empresas", empresaId, "vendas"), venda);
         
         if (pgto === 'Crediário') {
@@ -238,8 +327,16 @@ async function finalizarVenda(empresaId) {
         sincronizarEstoqueOnline(carrinho);
 
         Swal.fire('Sucesso', 'Venda realizada!', 'success');
-        carrinho = []; clienteSelecionado = null; renderizarCarrinho();
+        
+        // Reset Limpeza após finalização
+        carrinho = []; 
+        clienteSelecionado = null; 
+        cupomAplicado = null;
+        document.getElementById('codigo-cupom').value = '';
+        document.getElementById('info-cupom').style.display = 'none';
         document.getElementById('busca-produto').value = '';
+        renderizarCarrinho();
+        
     } catch(e) { console.error(e); Swal.fire('Erro', 'Falha ao salvar', 'error'); }
     finally { btn.disabled = false; btn.innerText = "FINALIZAR VENDA"; }
 }

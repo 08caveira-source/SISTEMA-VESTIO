@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnVerDetalhes.onclick = (e) => {
             e.preventDefault();
             const hoje = new Date().toISOString().split('T')[0];
+            // Define o filtro para hoje antes de redirecionar para relatórios
             localStorage.setItem('FILTRO_DATA_INICIO', hoje);
             localStorage.setItem('FILTRO_DATA_FIM', hoje);
             window.location.href = 'relatorios.html';
@@ -71,32 +72,57 @@ async function carregarMetricasDoDashboard() {
         snapVendas.forEach(d => { total += d.data().total; lista.push({id:d.id, ...d.data()}); });
         
         document.getElementById('card-vendas-hoje').innerText = total.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
-        // Chame sua função de renderizar tabela aqui (lista)
+        
+        listaVendasHoje = lista;
+        renderizarTabelaVendas();
 
-        // ESTOQUE (CORREÇÃO DO TRAVAMENTO)
+        // PEDIDOS ONLINE
+        const qOnline = query(getColRef("vendas_online"), where("status_integracao", "==", "pendente"));
+        const snapOnline = await getDocs(qOnline);
+        const cardOnline = document.getElementById('card-online-pendente');
+        const statusOnline = document.getElementById('status-online');
+        if(cardOnline && statusOnline) {
+            cardOnline.innerText = snapOnline.size;
+            if(snapOnline.size > 0) {
+                statusOnline.innerText = `${snapOnline.size} pedido(s) novo(s)`;
+                statusOnline.style.color = '#ff6b6b';
+            } else {
+                statusOnline.innerText = `Nenhum pedido novo`;
+                statusOnline.style.color = '#9b59b6';
+            }
+        }
+
+        // ESTOQUE (ÚLTIMAS PEÇAS)
         const snapProd = await getDocs(getColRef("produtos"));
         let valEstoque = 0;
         let alertas = [];
         
         snapProd.forEach(d => {
             const p = d.data();
-            valEstoque += (p.precoVenda || 0) * (p.estoqueTotal || 0);
+            const precoItem = parseFloat(p.precoVenda) || 0;
+            const estoqueGlobal = parseInt(p.estoqueTotal) || 0;
             
-            // VERIFICAÇÃO DE SEGURANÇA: Se grade existe e é array
-            if (p.grade && Array.isArray(p.grade)) {
+            valEstoque += precoItem * estoqueGlobal;
+            
+            if (p.grade && Array.isArray(p.grade) && p.grade.length > 0) {
                 p.grade.forEach(g => {
-                    if (g.qtd <= 3) alertas.push({ nome: p.nome, var: `${g.tamanho}/${g.cor}`, qtd: g.qtd });
+                    const qtdNum = parseInt(g.qtd) || 0;
+                    if (qtdNum <= 3) alertas.push({ nome: p.nome, var: `${g.tamanho}/${g.cor}`, qtd: qtdNum });
                 });
+            } else {
+                if (estoqueGlobal <= 3) alertas.push({ nome: p.nome, var: 'Tamanho Único', qtd: estoqueGlobal });
             }
         });
         
         document.getElementById('card-valor-estoque').innerText = valEstoque.toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
         
-        // Renderizar alertas
+        // Ordena os alertas para colocar a menor quantidade no topo da lista
+        alertas.sort((a, b) => a.qtd - b.qtd);
+
         const listaAlertas = document.getElementById('lista-alerta-estoque');
         listaAlertas.innerHTML = '';
-        if(alertas.length === 0) listaAlertas.innerHTML = '<tr><td>Estoque OK</td></tr>';
-        else alertas.forEach(a => listaAlertas.innerHTML += `<tr><td>${a.nome} (${a.var})</td><td style="color:red">${a.qtd}</td></tr>`);
+        if(alertas.length === 0) listaAlertas.innerHTML = '<tr><td style="padding: 15px; text-align: center; color: #94a3b8;">Estoque Seguro</td></tr>';
+        else alertas.forEach(a => listaAlertas.innerHTML += `<tr><td style="padding:8px; border-bottom:1px solid rgba(255,255,255,0.05);">${a.nome} <br><small style="color:#94a3b8">${a.var}</small></td><td style="color:#ff6b6b; font-weight:bold; text-align:right;">${a.qtd} un</td></tr>`);
 
     } catch (e) { console.error("Erro dashboard:", e); }
 }
@@ -164,13 +190,17 @@ window.verDetalhesVenda = function(id) {
 };
 
 window.excluirVenda = async function(id) {
-    const { value: pass } = await Swal.fire({
+    const { isConfirmed, value: pass } = await Swal.fire({
         title: 'Excluir Venda?',
         text: 'Requer senha de Gerente ou Super Admin',
         input: 'password',
         background: '#1e293b', color: '#fff',
-        showCancelButton: true
+        showCancelButton: true,
+        confirmButtonText: '✅ Confirmar',
+        cancelButtonText: '❌ Rejeitar'
     });
+
+    if(!isConfirmed) return;
 
     if(await validarSenhaMaster(pass)) {
         await deleteDoc(getDocRef("vendas", id));
@@ -186,16 +216,42 @@ if(btnPDF) {
     btnPDF.addEventListener('click', () => {
         if(!vendaParaPDF) return;
         const v = vendaParaPDF;
-        document.getElementById('cupom-nome-loja').innerText = NOME_LOJA;
-        document.getElementById('cupom-info-loja').innerText = `CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}`;
-        if(LOGO_LOJA) { const i = document.getElementById('cupom-logo'); i.src = LOGO_LOJA; i.style.display = 'block'; }
-        document.getElementById('cupom-data').innerText = formatarDataDia(v.dataVenda);
-        document.getElementById('cupom-cliente').innerText = v.clienteNome;
-        const tb = document.getElementById('cupom-itens'); tb.innerHTML = '';
-        v.itens.forEach(i => tb.innerHTML += `<tr><td>${i.nome}</td><td style="text-align:right;">${i.precoUnitario.toFixed(2)}</td></tr>`);
-        document.getElementById('cupom-total').innerText = v.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-        const el = document.getElementById('cupom-fiscal');
-        const opt = { margin: 0, filename: `2Via_${Date.now()}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: [80, 200] } };
-        html2pdf().set(opt).from(el).save();
+        
+        // Geração da String HTML direta para a bobina térmica (Resolve a folha em branco)
+        let htmlCupom = `
+            <div style="width: 76mm; padding: 5px; font-family: monospace; color: black; background: white;">
+                <div style="text-align:center;">
+                    <h3 style="margin: 5px 0;">${NOME_LOJA}</h3>
+                    <p style="margin: 5px 0; font-size: 11px;">CNPJ: ${CNPJ_LOJA} | ${TEL_LOJA}</p>
+        `;
+        
+        if(LOGO_LOJA) { htmlCupom += `<img src="${LOGO_LOJA}" style="max-height: 40px; margin-bottom: 5px; object-fit: contain;">`; }
+        
+        htmlCupom += `
+                </div>
+                <p style="margin: 5px 0; font-size: 12px;">Data: ${formatarDataDia(v.dataVenda)}</p>
+                <p style="margin: 5px 0 10px 0; font-size: 12px;">Cliente: ${v.clienteNome}</p>
+                <hr style="border-top: 1px dashed black;">
+                <table style="width:100%; font-size:11px;"><tbody>
+        `;
+        
+        v.itens.forEach(i => { htmlCupom += `<tr><td style="padding: 2px 0;">${i.nome}</td><td style="text-align:right; padding: 2px 0;">R$ ${i.precoUnitario.toFixed(2)}</td></tr>`; });
+        
+        htmlCupom += `
+                </tbody></table>
+                <hr style="border-top: 1px dashed black;">
+                <h3 style="text-align:right; margin-top: 5px;">Total: R$ ${v.total.toFixed(2)}</h3>
+            </div>
+        `;
+
+        const opt = { 
+            margin: 2, 
+            filename: `2Via_${Date.now()}.pdf`, 
+            image: { type: 'jpeg', quality: 1 }, 
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: [80, 200] } 
+        };
+        
+        html2pdf().set(opt).from(htmlCupom).save();
     });
 }
